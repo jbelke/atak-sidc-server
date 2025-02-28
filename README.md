@@ -40,7 +40,7 @@ By using this software, you acknowledge that:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/atak-sidc-server.git
+git clone https://github.com/jbelke/atak-sidc-server.git
 
 cd atak-sidc-server
 ```
@@ -88,8 +88,8 @@ Choose your preferred deployment method from the options below:
 
     The fastest way to get up and running with production-ready settings:
 
-```
-    bash docker-compose up -d
+```bash 
+    docker-compose up -d
 ```
 
     This will start the service in detached mode. You can check the logs with:
