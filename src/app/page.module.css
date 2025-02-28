@@ -1,0 +1,299 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 4rem 2rem;
+  min-height: 100vh;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: 3rem;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.description {
+  text-align: center;
+  margin-bottom: 2rem;
+  max-width: 800px;
+}
+
+.description h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(to right, #007cf0, #00dfd8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.description p {
+  font-size: 1.25rem;
+  line-height: 1.75;
+  color: hsl(var(--muted-foreground));
+  margin: 0 auto;
+  max-width: 600px;
+}
+
+.center {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.center h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.endpoints {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.endpoint {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: all 0.2s ease;
+}
+
+.endpoint:hover {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--accent-foreground));
+}
+
+.endpoint h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.endpoint code {
+  display: block;
+  padding: 0.75rem;
+  background: hsl(var(--muted));
+  border-radius: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0.75rem 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.card {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  background: hsl(var(--accent));
+  transform: translateY(-2px);
+}
+
+.card h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.card p {
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+}
+
+.content {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 3rem;
+}
+
+.content h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.025em;
+}
+
+.content h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 2rem 0 1rem;
+}
+
+.formatList {
+  list-style: none;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.formatList li code {
+  background: hsl(var(--muted));
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.notes {
+  margin: 1.5rem 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.quickLinks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.quickLink {
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.quickLink:hover {
+  transform: translateY(-2px);
+}
+
+.quickLink a {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.symbolPreview {
+  display: block;
+  margin: 0 auto 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.symbolPreview:hover {
+  border-color: hsl(var(--accent-foreground));
+}
+
+.modelPreview {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--muted));
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  transition: all 0.2s ease;
+}
+
+.modelPreview:hover {
+  border-color: hsl(var(--accent-foreground));
+  background: hsl(var(--accent));
+}
+
+.example {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+
+.exampleUrl {
+  margin: 1rem 0;
+}
+
+.exampleUrl code {
+  display: block;
+  padding: 1rem;
+  background: hsl(var(--muted));
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.credits {
+  margin: 2rem 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.credits li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.credits strong {
+  color: hsl(var(--foreground));
+}
+
+.roadmapGrid {
+  display: grid;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.roadmapItem {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-left: 4px solid hsl(var(--primary));
+}
+
+.roadmapItem h3 {
+  color: hsl(var(--primary));
+  margin-top: 0;
+}
+
+.roadmapItem p {
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 2rem 1rem;
+  }
+
+  .description h1 {
+    font-size: 2.5rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .endpoints {
+    grid-template-columns: 1fr;
+  }
+
+  .quickLinks {
+    grid-template-columns: 1fr;
+  }
+}

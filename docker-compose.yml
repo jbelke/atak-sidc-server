@@ -1,0 +1,38 @@
+---
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+        ALPINE_VERSION: ${ALPINE_VERSION}
+    container_name: ${DOCKER_CONTAINER_NAME}
+    restart: unless-stopped
+    ports:
+      - "${PORT}:${PORT}"
+      - "${PM2_PORT}:${PM2_PORT}"
+    volumes:
+      - ${LOG_PATH}:/app/logs
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - PORT=${PORT}
+      - PM2_PORT=${PM2_PORT}
+      - NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED}
+    healthcheck:
+      test: |
+        /bin/sh -c '
+        wget -qO- http://localhost:${PORT}/api/health || exit 1;
+        wget -qO- http://localhost:${PM2_PORT}/api/health || exit 1;
+        '
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+        reservations:
+          memory: ${MEMORY_RESERVATION} 
