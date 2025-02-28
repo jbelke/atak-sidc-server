@@ -1,0 +1,81 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+.nyc_output
+
+# next.js
+/.next/
+/out/
+/build
+.next-env.d.ts
+*.tsbuildinfo
+
+# production
+/dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# local env files
+.env*.local
+.env
+.env.development
+.env.test
+.env.production
+
+# vercel
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.project
+.settings/
+.classpath
+
+# Cache and Build artifacts
+.cache/
+tsconfig.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# Misc
+*.log
+.tmp
+.temp
+.cache
+.history
+
+# PM2
+pm2.log
+.pm2/
+
+# PWA
+**/public/sw.js
+**/public/workbox-*.js
+**/public/worker-*.js
+**/public/sw.js.map
+**/public/workbox-*.js.map
+**/public/worker-*.js.map
+
+# Environment variables
+.env
+
+# Keep .env.sample in version control
+!.env.sample
