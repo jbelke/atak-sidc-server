@@ -79,3 +79,8 @@ pm2.log
 
 # Keep .env.sample in version control
 !.env.sample
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
