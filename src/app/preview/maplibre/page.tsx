@@ -7,6 +7,7 @@ import { buildSymbolGlbUrl } from "@/lib/maplibre/SidcSymbol3DLayer";
 import {
   SidcSymbolFieldLayer,
   type SymbolFieldTrack,
+  type SymbolForm,
 } from "@/lib/maplibre/SidcSymbolFieldLayer";
 import styles from "./cop.module.css";
 
@@ -127,7 +128,48 @@ export default function MapLibreGalleryPage(): JSX.Element {
   const [affiliation, setAffiliation] = useState<Affiliation>("friend");
   const [setId, setSetId] = useState<string>(DEFAULT_SET);
   const [tilt, setTilt] = useState(40); // puck lean toward viewer, degrees
+  const [heading, setHeading] = useState(0); // icon orientation, degrees
+  const [spin, setSpin] = useState(0); // continuous rotation, deg/sec
+  const [form, setForm] = useState<SymbolForm>("puck");
   const [readout, setReadout] = useState({ lng: CENTER[0], lat: CENTER[1], zoom: 13 });
+
+  // --- hydrate 3D presentation state from the URL once (?form&tilt&heading&spin) ---
+  // Guarded so React 18 StrictMode's double-mount doesn't re-read the URL after
+  // the write effect below has already rewritten it to current (default) state.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    const q = new URLSearchParams(window.location.search);
+    const f = q.get("form");
+    if (f === "puck" || f === "billboard") setForm(f);
+    const num = (k: string) => {
+      const v = q.get(k);
+      return v === null ? null : Number(v);
+    };
+    const t = num("tilt");
+    if (t !== null && !Number.isNaN(t)) setTilt(t);
+    const h = num("heading");
+    if (h !== null && !Number.isNaN(h)) setHeading(h);
+    const s = num("spin");
+    if (s !== null && !Number.isNaN(s)) setSpin(s);
+    const set = q.get("set");
+    if (set) setSetId(set);
+    const aff = q.get("aff");
+    if (aff && aff in AFFIL_CODE) setAffiliation(aff as Affiliation);
+  }, []);
+
+  // --- reflect 3D presentation state back into the URL (shareable / for clients) ---
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    q.set("set", setId);
+    q.set("aff", affiliation);
+    q.set("form", form);
+    q.set("tilt", String(tilt));
+    q.set("heading", String(heading));
+    q.set("spin", String(spin));
+    window.history.replaceState(null, "", `?${q.toString()}`);
+  }, [setId, affiliation, form, tilt, heading, spin]);
 
   // --- fetch catalog once ---
   useEffect(() => {
@@ -250,6 +292,9 @@ export default function MapLibreGalleryPage(): JSX.Element {
         referenceZoom: cam?.zoom ?? map.getZoom(),
         screenSpaceScaling: true,
         tiltDegrees: tilt,
+        headingDegrees: heading,
+        spinDegPerSec: spin,
+        form,
       });
       map.addLayer(field);
       fieldRef.current = field;
@@ -261,10 +306,19 @@ export default function MapLibreGalleryPage(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mode, affiliation, setId, setEntries]);
 
-  // Live-apply puck verticality without rebuilding the field (no GLB reloads).
+  // Live-apply presentation changes without rebuilding the field (no GLB reloads).
   useEffect(() => {
     fieldRef.current?.setTilt(tilt);
   }, [tilt]);
+  useEffect(() => {
+    fieldRef.current?.setHeading(heading);
+  }, [heading]);
+  useEffect(() => {
+    fieldRef.current?.setSpin(spin);
+  }, [spin]);
+  useEffect(() => {
+    fieldRef.current?.setForm(form);
+  }, [form]);
 
   const total = setMeta?.count ?? setEntries.length;
 
@@ -340,18 +394,58 @@ export default function MapLibreGalleryPage(): JSX.Element {
 
           {mode === "3d" && (
             <div className={styles.section}>
-              <div className={styles.sectionTitle}>VERTICALITY · {tilt}°</div>
+              <div className={styles.sectionTitle}>3D PRESENTATION</div>
+              <div className={styles.flags}>
+                {(["puck", "billboard"] as SymbolForm[]).map((f) => (
+                  <button
+                    key={f}
+                    className={form === f ? styles.flagOn : styles.flag}
+                    onClick={() => setForm(f)}
+                  >
+                    {f.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.sliderLabel}>
+                VERTICALITY · {form === "billboard" ? "auto" : `${tilt}°`}
+              </div>
               <input
                 type="range"
                 min={0}
                 max={90}
                 step={1}
                 value={tilt}
+                disabled={form === "billboard"}
                 onChange={(e) => setTilt(Number(e.target.value))}
                 className={styles.slider}
                 aria-label="Puck verticality"
               />
-              <div className={styles.note}>flat token ↔ upright billboard</div>
+
+              <div className={styles.sliderLabel}>HEADING · {heading}°</div>
+              <input
+                type="range"
+                min={0}
+                max={359}
+                step={1}
+                value={heading}
+                onChange={(e) => setHeading(Number(e.target.value))}
+                className={styles.slider}
+                aria-label="Icon heading"
+              />
+
+              <div className={styles.sliderLabel}>SPIN · {spin}°/s</div>
+              <input
+                type="range"
+                min={0}
+                max={180}
+                step={5}
+                value={spin}
+                onChange={(e) => setSpin(Number(e.target.value))}
+                className={styles.slider}
+                aria-label="Spin rate"
+              />
+              <div className={styles.note}>orientation · verticality · rotation — all in the URL</div>
             </div>
           )}
 

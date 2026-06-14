@@ -34,7 +34,18 @@ export interface SidcSymbolFieldLayerOptions {
    * flat on the ground (token); 90 = stand fully upright facing the viewer.
    */
   tiltDegrees?: number;
+  /** Spin the icon in its own plane, degrees/second (0 = static). */
+  headingDegrees?: number;
+  /** Continuous in-plane rotation rate, degrees/second (0 = none). */
+  spinDegPerSec?: number;
+  /**
+   * Presentation form. `puck` = ground token leaned by tiltDegrees;
+   * `billboard` = always rotate flat-on to the camera (perfect 2D parity).
+   */
+  form?: SymbolForm;
 }
+
+export type SymbolForm = "puck" | "billboard";
 
 interface PlacedSymbol {
   group: THREE.Group;
@@ -63,6 +74,11 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
   private readonly referenceZoomOption?: number;
   private referenceZoom = 0;
   private tiltDegrees: number;
+  private headingDegrees: number;
+  private spinDegPerSec: number;
+  private form: SymbolForm;
+  private spinPhaseRad = 0;
+  private lastFrameMs?: number;
 
   private map?: maplibregl.Map;
   private camera?: THREE.Camera;
@@ -78,11 +94,32 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     this.screenSpaceScaling = options.screenSpaceScaling ?? true;
     this.referenceZoomOption = options.referenceZoom;
     this.tiltDegrees = options.tiltDegrees ?? 0;
+    this.headingDegrees = options.headingDegrees ?? 0;
+    this.spinDegPerSec = options.spinDegPerSec ?? 0;
+    this.form = options.form ?? "puck";
   }
 
   /** Live-adjust how far the pucks lean toward the viewer (0 = flat, 90 = upright). */
   setTilt(degrees: number): void {
     this.tiltDegrees = Math.max(0, Math.min(90, degrees));
+    this.map?.triggerRepaint();
+  }
+
+  /** Live-adjust the icon's in-plane heading (orientation), degrees. */
+  setHeading(degrees: number): void {
+    this.headingDegrees = degrees;
+    this.map?.triggerRepaint();
+  }
+
+  /** Live-adjust the continuous spin rate, degrees/second (0 = stop). */
+  setSpin(degPerSec: number): void {
+    this.spinDegPerSec = degPerSec;
+    this.map?.triggerRepaint();
+  }
+
+  /** Switch presentation form: `puck` (leaning token) or `billboard` (faces camera). */
+  setForm(form: SymbolForm): void {
+    this.form = form;
     this.map?.triggerRepaint();
   }
 
@@ -199,21 +236,34 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
       : 1;
     const bearingRad = (this.map.getBearing() * Math.PI) / 180;
 
-    // Pucks lie FLAT on the ground (poker-chip tokens) with the icon facing the
-    // sky, so the textured face reads like the 2D symbol from any bearing and at
-    // typical COP pitch. A spin about the up-axis keeps the icon north-up as the
-    // basemap rotates.
+    // Advance the spin phase by wall-clock so the rate is frame-rate independent.
+    const nowMs =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (this.lastFrameMs !== undefined && this.spinDegPerSec !== 0) {
+      const dt = (nowMs - this.lastFrameMs) / 1000;
+      this.spinPhaseRad =
+        (this.spinPhaseRad + (this.spinDegPerSec * Math.PI) / 180 * dt) %
+        (Math.PI * 2);
+    }
+    this.lastFrameMs = nowMs;
+
+    // In-plane orientation of the icon: counter the basemap bearing (north-up),
+    // plus a fixed heading and the animated spin phase.
+    const headingRad = (this.headingDegrees * Math.PI) / 180;
     const rotationZ = new THREE.Matrix4().makeRotationAxis(
       new THREE.Vector3(0, 0, 1),
-      -bearingRad
+      -bearingRad + headingRad + this.spinPhaseRad
     );
 
-    // Optionally lean each puck up toward the viewer. The camera's horizontal
-    // look direction (over the ground) at compass bearing B is d = (sinB, -cosB)
-    // in mercator (y grows southward); rotating about the horizontal axis d×ẑ
-    // lifts the far edge so the face turns to the camera — a music-stand tilt
-    // that tracks the viewer no matter the bearing.
-    const tiltRad = (this.tiltDegrees * Math.PI) / 180;
+    // Lean each puck up toward the viewer. The camera's horizontal look direction
+    // (over the ground) at compass bearing B is d = (sinB, -cosB) in mercator
+    // (y grows southward); rotating about the horizontal axis d×ẑ lifts the far
+    // edge so the face turns to the camera — a music-stand tilt that tracks the
+    // viewer no matter the bearing. A `billboard` form auto-sets that lean to the
+    // map pitch, so the face stays flat-on to the camera from any angle.
+    const effectiveTiltDeg =
+      this.form === "billboard" ? this.map.getPitch() : this.tiltDegrees;
+    const tiltRad = (effectiveTiltDeg * Math.PI) / 180;
     const tiltAxis = new THREE.Vector3(
       -Math.cos(bearingRad),
       -Math.sin(bearingRad),

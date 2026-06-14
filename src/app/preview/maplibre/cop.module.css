@@ -210,6 +210,16 @@
   accent-color: #7fd2ff;
   cursor: pointer;
 }
+.slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sliderLabel {
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #8aa0b6;
+}
 
 .marker img {
   width: 46px;
