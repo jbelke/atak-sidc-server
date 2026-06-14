@@ -11,8 +11,10 @@ import {
   Symbol3DOptions,
 } from "./types";
 
+// The inner entity icon is extruded thicker than the frame and then CENTERED on
+// the frame's mid-plane so it stands proud of BOTH faces — a true double-sided
+// emboss/relief, readable whether the camera sees the symbol's front or back.
 const ICON_DEPTH_MULTIPLIER = 2.8;
-const ICON_Z_OFFSET_FACTOR = 1.05;
 
 function resolveExtrudeOptions(
   partial?: Partial<ExtrudeOptions>
@@ -85,7 +87,10 @@ export function buildSymbolScene(
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = `${role}-${i}-${j}`;
       if (role === "icon") {
-        mesh.position.z = extrude.depth * ICON_Z_OFFSET_FACTOR;
+        // Frame occupies z ∈ [0, depth]; an icon of depth `pathDepth` whose
+        // start sits at (depth - pathDepth)/2 is centered on depth/2, so it
+        // pokes out equally front and back: embossed on both sides.
+        mesh.position.z = (extrude.depth - pathDepth) / 2;
       }
       group.add(mesh);
     }

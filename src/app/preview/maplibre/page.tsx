@@ -157,6 +157,7 @@ export default function MapLibreGalleryPage(): JSX.Element {
       attributionControl: false,
     });
     mapRef.current = map;
+    if (typeof window !== "undefined") (window as unknown as { __map: maplibregl.Map }).__map = map;
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
@@ -244,6 +245,7 @@ export default function MapLibreGalleryPage(): JSX.Element {
         screenSpaceScaling: true,
       });
       map.addLayer(field);
+      if (typeof window !== "undefined") (window as unknown as { __field: unknown }).__field = field;
     }
 
     map.fitBounds(bounds, fitOpts);
