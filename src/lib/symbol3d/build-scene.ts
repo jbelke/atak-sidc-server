@@ -51,6 +51,7 @@ export function buildSymbolScene(
   const extrude = resolveExtrudeOptions(options.extrude);
   const flipY = options.flipY ?? true;
   const targetSize = options.targetSize ?? DEFAULT_TARGET_SIZE;
+  const frameOnly = options.frameOnly ?? false;
 
   const loader = new SVGLoader();
   const svgData = loader.parse(svgString);
@@ -60,8 +61,21 @@ export function buildSymbolScene(
 
   for (let i = 0; i < svgData.paths.length; i++) {
     const path = svgData.paths[i];
-    const shapes = SVGLoader.createShapes(path);
     const role = classifySymbolPath(path, i);
+
+    // milsymbol draws inner icons with strokes (fill="none"). Feeding those to
+    // createShapes fills the closed stroke outline as a solid (white) blob that
+    // looks nothing like the 2D glyph — so we only extrude paths that actually
+    // have a fill, and in frameOnly mode only the affiliation frame.
+    const style = path.userData?.style as
+      | { fill?: string; fillOpacity?: number }
+      | undefined;
+    const fill = style?.fill;
+    const hasFill = fill !== undefined && fill !== "none";
+    if (!hasFill) continue;
+    if (frameOnly && role !== "frame") continue;
+
+    const shapes = SVGLoader.createShapes(path);
 
     const fillOpacity = path.userData?.style?.fillOpacity;
     const opacity =

@@ -15,6 +15,13 @@ export interface Symbol3DOptions {
   targetSize?: number;
   /** Flip SVG Y-down coordinates to Y-up (recommended for WebGL / Three.js) */
   flipY?: boolean;
+  /**
+   * Extrude only the affiliation frame (a colored "puck"), skipping inner icon
+   * geometry. The icon is meant to be supplied as a texture on the puck faces —
+   * milsymbol icons are stroke-based (fill="none") and do not survive fill
+   * extrusion, so geometric icons read as solid blobs.
+   */
+  frameOnly?: boolean;
   sidc?: string;
   standard?: string;
 }

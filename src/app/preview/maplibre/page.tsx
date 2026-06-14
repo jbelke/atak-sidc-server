@@ -118,6 +118,7 @@ export default function MapLibreGalleryPage(): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const fieldRef = useRef<SidcSymbolFieldLayer | null>(null);
   const fieldLayerId = "sidc-symbol-field";
 
   const [ready, setReady] = useState(false);
@@ -125,6 +126,7 @@ export default function MapLibreGalleryPage(): JSX.Element {
   const [mode, setMode] = useState<Mode>("3d");
   const [affiliation, setAffiliation] = useState<Affiliation>("friend");
   const [setId, setSetId] = useState<string>(DEFAULT_SET);
+  const [tilt, setTilt] = useState(40); // puck lean toward viewer, degrees
   const [readout, setReadout] = useState({ lng: CENTER[0], lat: CENTER[1], zoom: 13 });
 
   // --- fetch catalog once ---
@@ -226,16 +228,20 @@ export default function MapLibreGalleryPage(): JSX.Element {
         markersRef.current.push(marker);
       });
     } else {
-      const tracks: SymbolFieldTrack[] = setEntries.map((entry, k) => ({
-        id: entry.id,
-        lngLat: positions[k],
-        modelUrl: buildSymbolGlbUrl(
-          origin,
-          STANDARD,
-          buildSidc(affiliation, entry.symbolSet, entry.mainIcon),
-          { depth: 9, targetSize: 100 }
-        ),
-      }));
+      const tracks: SymbolFieldTrack[] = setEntries.map((entry, k) => {
+        const sidc = buildSidc(affiliation, entry.symbolSet, entry.mainIcon);
+        return {
+          id: entry.id,
+          lngLat: positions[k],
+          // Frame-only puck (geometric depth) + crisp 2D icon as a face texture.
+          modelUrl:
+            buildSymbolGlbUrl(origin, STANDARD, sidc, {
+              depth: 9,
+              targetSize: 100,
+            }) + "&frameOnly=1",
+          textureUrl: `${origin}/api/${STANDARD}/${sidc}.png?size=256`,
+        };
+      });
       const cam = map.cameraForBounds(bounds, fitOpts);
       const field = new SidcSymbolFieldLayer({
         id: fieldLayerId,
@@ -243,13 +249,22 @@ export default function MapLibreGalleryPage(): JSX.Element {
         scaleMultiplier: 3,
         referenceZoom: cam?.zoom ?? map.getZoom(),
         screenSpaceScaling: true,
+        tiltDegrees: tilt,
       });
       map.addLayer(field);
+      fieldRef.current = field;
       if (typeof window !== "undefined") (window as unknown as { __field: unknown }).__field = field;
     }
 
     map.fitBounds(bounds, fitOpts);
+    // `tilt` is intentionally excluded — it is applied live below without a rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, mode, affiliation, setId, setEntries]);
+
+  // Live-apply puck verticality without rebuilding the field (no GLB reloads).
+  useEffect(() => {
+    fieldRef.current?.setTilt(tilt);
+  }, [tilt]);
 
   const total = setMeta?.count ?? setEntries.length;
 
@@ -322,6 +337,23 @@ export default function MapLibreGalleryPage(): JSX.Element {
               {affiliation.toUpperCase()}
             </div>
           </div>
+
+          {mode === "3d" && (
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>VERTICALITY · {tilt}°</div>
+              <input
+                type="range"
+                min={0}
+                max={90}
+                step={1}
+                value={tilt}
+                onChange={(e) => setTilt(Number(e.target.value))}
+                className={styles.slider}
+                aria-label="Puck verticality"
+              />
+              <div className={styles.note}>flat token ↔ upright billboard</div>
+            </div>
+          )}
 
           <div className={styles.gridList}>
             {setEntries.map((entry) => (

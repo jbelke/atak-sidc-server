@@ -204,6 +204,13 @@
   color: #cfe0f2;
 }
 
+.slider {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: #7fd2ff;
+  cursor: pointer;
+}
+
 .marker img {
   width: 46px;
   height: 46px;

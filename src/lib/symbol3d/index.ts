@@ -63,12 +63,15 @@ export function parseSymbol3DOptions(
 ): Symbol3DOptions {
   const targetSize = searchParams.get("targetSize");
   const flipY = searchParams.get("flipY");
+  const frameOnly = searchParams.get("frameOnly");
 
   return {
     extrude: parseExtrudeOptions(searchParams),
     targetSize:
       targetSize !== null ? parseFloat(targetSize) : undefined,
     flipY: flipY !== null ? flipY === "true" || flipY === "1" : undefined,
+    frameOnly:
+      frameOnly !== null ? frameOnly === "true" || frameOnly === "1" : undefined,
     sidc: metadata.sidc,
     standard: metadata.standard,
   };

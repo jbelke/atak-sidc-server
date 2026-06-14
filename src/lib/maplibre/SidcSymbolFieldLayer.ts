@@ -12,6 +12,12 @@ export interface SymbolFieldTrack {
   modelUrl: string;
   lngLat: [number, number];
   altitudeMeters?: number;
+  /**
+   * Optional 2D milsymbol raster (PNG) mapped onto the puck's front & back faces.
+   * Gives crisp, true-to-2D icons that geometric extrusion cannot reproduce for
+   * stroke-based glyphs.
+   */
+  textureUrl?: string;
 }
 
 export interface SidcSymbolFieldLayerOptions {
@@ -23,6 +29,11 @@ export interface SidcSymbolFieldLayerOptions {
   referenceZoom?: number;
   /** Keep roughly constant on-screen size while zooming (map-marker behavior). */
   screenSpaceScaling?: boolean;
+  /**
+   * Lift each puck's far edge toward the camera by this many degrees. 0 = lie
+   * flat on the ground (token); 90 = stand fully upright facing the viewer.
+   */
+  tiltDegrees?: number;
 }
 
 interface PlacedSymbol {
@@ -51,12 +62,14 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
   private readonly screenSpaceScaling: boolean;
   private readonly referenceZoomOption?: number;
   private referenceZoom = 0;
+  private tiltDegrees: number;
 
   private map?: maplibregl.Map;
   private camera?: THREE.Camera;
   private scene?: THREE.Scene;
   private renderer?: THREE.WebGLRenderer;
   private readonly symbols: PlacedSymbol[] = [];
+  private readonly textureLoader = new THREE.TextureLoader();
 
   constructor(options: SidcSymbolFieldLayerOptions) {
     this.id = options.id;
@@ -64,6 +77,13 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     this.scaleMultiplier = options.scaleMultiplier ?? 8;
     this.screenSpaceScaling = options.screenSpaceScaling ?? true;
     this.referenceZoomOption = options.referenceZoom;
+    this.tiltDegrees = options.tiltDegrees ?? 0;
+  }
+
+  /** Live-adjust how far the pucks lean toward the viewer (0 = flat, 90 = upright). */
+  setTilt(degrees: number): void {
+    this.tiltDegrees = Math.max(0, Math.min(90, degrees));
+    this.map?.triggerRepaint();
   }
 
   onAdd(map: maplibregl.Map, gl: WebGLRenderingContext): void {
@@ -80,6 +100,9 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
           if (!this.scene) return;
           applyFlatSymbolMaterials(gltf.scene);
           groundSymbolModel(gltf.scene);
+          if (track.textureUrl) {
+            this.applyFaceTexture(gltf.scene, track.textureUrl);
+          }
 
           const wrapper = new THREE.Group();
           wrapper.matrixAutoUpdate = false; // we drive the matrix each frame
@@ -118,6 +141,41 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
+  /**
+   * Lay the 2D milsymbol PNG onto the puck's front and back faces. The texture's
+   * transparent background lets the extruded frame's colored rim read as 3D depth
+   * while the icon/outline stays pixel-crisp and identical to the 2D symbol.
+   */
+  private applyFaceTexture(root: THREE.Object3D, url: string): void {
+    const box = new THREE.Box3().setFromObject(root);
+    if (!Number.isFinite(box.min.z)) return;
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const eps = Math.max(size.z * 0.02, 0.05);
+
+    const texture = this.textureLoader.load(url, () => this.map?.triggerRepaint());
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.05,
+      side: THREE.DoubleSide,
+      depthWrite: true,
+    });
+    const geometry = new THREE.PlaneGeometry(size.x, size.y);
+
+    const front = new THREE.Mesh(geometry, material);
+    front.position.set(center.x, center.y, box.max.z + eps);
+    root.add(front);
+
+    const back = new THREE.Mesh(geometry, material);
+    back.position.set(center.x, center.y, box.min.z - eps);
+    back.rotation.y = Math.PI; // face outward so the icon isn't mirrored
+    root.add(back);
+  }
+
   onRemove(): void {
     this.symbols.length = 0;
     this.renderer?.dispose();
@@ -139,24 +197,38 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     const zoomScale = this.screenSpaceScaling
       ? Math.pow(2, this.referenceZoom - zoom)
       : 1;
-    const bearing = (-this.map.getBearing() * Math.PI) / 180;
+    const bearingRad = (this.map.getBearing() * Math.PI) / 180;
 
-    const rotationX = new THREE.Matrix4().makeRotationAxis(
-      new THREE.Vector3(1, 0, 0),
-      -Math.PI / 2 // stand the flat artwork upright
+    // Pucks lie FLAT on the ground (poker-chip tokens) with the icon facing the
+    // sky, so the textured face reads like the 2D symbol from any bearing and at
+    // typical COP pitch. A spin about the up-axis keeps the icon north-up as the
+    // basemap rotates.
+    const rotationZ = new THREE.Matrix4().makeRotationAxis(
+      new THREE.Vector3(0, 0, 1),
+      -bearingRad
     );
-    const rotationY = new THREE.Matrix4().makeRotationAxis(
-      new THREE.Vector3(0, 1, 0),
-      bearing // keep facing map-north as the basemap rotates
+
+    // Optionally lean each puck up toward the viewer. The camera's horizontal
+    // look direction (over the ground) at compass bearing B is d = (sinB, -cosB)
+    // in mercator (y grows southward); rotating about the horizontal axis d×ẑ
+    // lifts the far edge so the face turns to the camera — a music-stand tilt
+    // that tracks the viewer no matter the bearing.
+    const tiltRad = (this.tiltDegrees * Math.PI) / 180;
+    const tiltAxis = new THREE.Vector3(
+      -Math.cos(bearingRad),
+      -Math.sin(bearingRad),
+      0
     );
+    const tilt = new THREE.Matrix4().makeRotationAxis(tiltAxis, tiltRad);
 
     for (const symbol of this.symbols) {
       const scale = symbol.meterScale * this.scaleMultiplier * zoomScale;
+      const scaleM = new THREE.Matrix4().makeScale(scale, -scale, scale);
       symbol.group.matrix
         .makeTranslation(symbol.mercatorX, symbol.mercatorY, symbol.mercatorZ)
-        .scale(new THREE.Vector3(scale, -scale, scale))
-        .multiply(rotationX)
-        .multiply(rotationY);
+        .multiply(tilt)
+        .multiply(scaleM)
+        .multiply(rotationZ);
       symbol.group.matrixWorldNeedsUpdate = true;
     }
 
