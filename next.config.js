@@ -20,6 +20,18 @@ const nextConfig = {
         // Only run ESLint on local development
         ignoreDuringBuilds: true,
     },
+    async headers() {
+        return [
+            {
+                source: '/api/:path*',
+                headers: [
+                    { key: 'Access-Control-Allow-Origin', value: '*' },
+                    { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+                    { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Accept' },
+                ],
+            },
+        ];
+    },
     // Add other Next.js config options here
     output: 'standalone',
 };

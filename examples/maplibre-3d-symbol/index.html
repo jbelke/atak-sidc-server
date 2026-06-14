@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MapLibre 3D SIDC Symbol — ATAK SIDC Server</title>
+    <link
+      href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        font-family: system-ui, sans-serif;
+      }
+      #map {
+        width: 100%;
+        height: 100%;
+      }
+      .banner {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 1;
+        background: rgba(15, 23, 42, 0.9);
+        color: #e2e8f0;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        max-width: 420px;
+        line-height: 1.4;
+      }
+      .banner a {
+        color: #38bdf8;
+      }
+      .banner code {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <strong>3D SIDC on MapLibre</strong><br />
+      GLB: <a id="model-link" href="#">loading…</a><br />
+      <code>?apiBase=http://localhost:8080&sidc=…&depth=8&targetSize=100&scale=6</code>
+    </div>
+    <div id="map"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://esm.sh/three@0.173.0",
+          "three/addons/": "https://esm.sh/three@0.173.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import maplibregl from "https://esm.sh/maplibre-gl@5.24.0";
+      import * as THREE from "three";
+      import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+      const params = new URLSearchParams(window.location.search);
+      const apiBase = (params.get("apiBase") || window.location.origin).replace(/\/$/, "");
+      const sidc = params.get("sidc") || "10133000001207000000";
+      const standard = params.get("standard") || "APP6";
+      const depth = params.get("depth") || "8";
+      const targetSize = params.get("targetSize") || "100";
+      const scaleMultiplier = Number(params.get("scale") || "6");
+      const origin = [
+        Number(params.get("lng") || "12.5"),
+        Number(params.get("lat") || "55.7"),
+      ];
+
+      const modelUrl = `${apiBase}/api/${standard}/${sidc}.glb?depth=${depth}&targetSize=${targetSize}`;
+      document.getElementById("model-link").href = modelUrl;
+      document.getElementById("model-link").textContent = modelUrl;
+
+      const map = new maplibregl.Map({
+        container: "map",
+        // OSM raster basemap: no API key and has detail at high zoom (demotiles
+        // is empty past ~zoom 6, so a meter-scaled symbol would float over a flat fill).
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: "raster",
+              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+              tileSize: 256,
+              attribution: "© OpenStreetMap contributors",
+            },
+          },
+          layers: [{ id: "osm", type: "raster", source: "osm" }],
+        },
+        center: origin,
+        zoom: 15.5,
+        pitch: 60,
+        bearing: -20,
+        canvasContextAttributes: { antialias: true },
+      });
+
+      map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+      function applyFlatMaterials(root) {
+        root.traverse((object) => {
+          if (!object.isMesh) return;
+          const src = object.material;
+          const color = src.color ? src.color.clone() : new THREE.Color(1, 1, 1);
+          object.material = new THREE.MeshBasicMaterial({
+            color,
+            transparent: src.transparent,
+            opacity: src.opacity,
+            side: THREE.DoubleSide,
+          });
+        });
+      }
+
+      function groundModel(root) {
+        const box = new THREE.Box3().setFromObject(root);
+        root.position.z -= box.min.z;
+      }
+
+      const mercator = maplibregl.MercatorCoordinate.fromLngLat(origin, 0);
+      const referenceZoom = map.getZoom();
+      const baseMeterScale =
+        mercator.meterInMercatorCoordinateUnits() * scaleMultiplier;
+      const modelTransform = {
+        translateX: mercator.x,
+        translateY: mercator.y,
+        translateZ: mercator.z,
+        rotateX: -Math.PI / 2,
+        rotateY: 0,
+        rotateZ: 0,
+      };
+
+      let camera, scene, renderer, model;
+
+      map.on("style.load", () => {
+        map.addLayer({
+          id: "sidc-symbol-3d",
+          type: "custom",
+          renderingMode: "3d",
+          onAdd(map, gl) {
+            camera = new THREE.Camera();
+            scene = new THREE.Scene();
+
+            const loader = new GLTFLoader();
+            loader.load(modelUrl, (gltf) => {
+              applyFlatMaterials(gltf.scene);
+              groundModel(gltf.scene);
+              model = gltf.scene;
+              scene.add(model);
+              map.triggerRepaint();
+            });
+
+            renderer = new THREE.WebGLRenderer({
+              canvas: map.getCanvas(),
+              context: gl,
+              antialias: true,
+            });
+            renderer.autoClear = false;
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+          },
+          render(gl, options) {
+            if (!model) return;
+            modelTransform.rotateY = (-map.getBearing() * Math.PI) / 180;
+            const zoomScale = Math.pow(2, referenceZoom - map.getZoom());
+            const scale = baseMeterScale * zoomScale;
+            const rotationX = new THREE.Matrix4().makeRotationAxis(
+              new THREE.Vector3(1, 0, 0),
+              modelTransform.rotateX
+            );
+            const rotationY = new THREE.Matrix4().makeRotationAxis(
+              new THREE.Vector3(0, 1, 0),
+              modelTransform.rotateY
+            );
+            const rotationZ = new THREE.Matrix4().makeRotationAxis(
+              new THREE.Vector3(0, 0, 1),
+              modelTransform.rotateZ
+            );
+            const m = new THREE.Matrix4().fromArray(
+              options.defaultProjectionData.mainMatrix
+            );
+            const l = new THREE.Matrix4()
+              .makeTranslation(
+                modelTransform.translateX,
+                modelTransform.translateY,
+                modelTransform.translateZ
+              )
+              .scale(
+                new THREE.Vector3(scale, -scale, scale)
+              )
+              .multiply(rotationX)
+              .multiply(rotationY)
+              .multiply(rotationZ);
+            camera.projectionMatrix = m.multiply(l);
+            renderer.resetState();
+            renderer.render(scene, camera);
+            map.triggerRepaint();
+          },
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -105,6 +105,17 @@ export default function Home(): JSX.Element {
         <h2>API Endpoints</h2>
         <div className={styles.endpoints}>
           <div className={styles.endpoint}>
+            <h3>Symbol library</h3>
+            <code>GET /library</code>
+            <p>
+              Browse and QA the full APP-6(D) main-icon catalog with
+              filters, live preview, and export links.
+            </p>
+            <a href="/library" className={styles.libraryLink}>
+              Open symbol library →
+            </a>
+          </div>
+          <div className={styles.endpoint}>
             <h3>Generate Symbol</h3>
             <code>
               GET /api/{"{standard}"}/{"{sidc}"}
@@ -137,24 +148,44 @@ export default function Home(): JSX.Element {
       </div>
 
       <div className={styles.content}>
+        <h2>3D & WebGL Formats</h2>
+        <p>
+          Generate extruded 3D military symbol forms for OpenGL, WebGL, Three.js,
+          and MapLibre GL JS custom layers.
+        </p>
+        <ul className={styles.formatList}>
+          <li>
+            <code>glb</code> — Binary GLTF (recommended for MapLibre / Three.js)
+          </li>
+          <li>
+            <code>gltf</code> — GL Transmission Format JSON
+          </li>
+          <li>
+            <code>obj</code> — Wavefront OBJ
+          </li>
+          <li>
+            <code>mesh</code> — Raw WebGL mesh JSON (vertices, normals, indices)
+          </li>
+        </ul>
+        <p>Example:</p>
+        <code className={styles.endpoint}>
+          GET /api/APP6/10133000001207000000.glb?depth=5&amp;targetSize=100
+        </code>
+
+        <p style={{ marginTop: "1rem" }}>
+          <a href="/preview/maplibre">
+            ▶ Live MapLibre GL JS preview — 3D symbol on a tilted map
+          </a>
+        </p>
+
         <h2>Roadmap</h2>
         <div className={styles.roadmapGrid}>
           <div className={styles.roadmapItem}>
             <h3>3D Model Generation</h3>
             <p>
-              Coming soon: Generate 3D models (GLTF, GLB, OBJ) from SIDC codes
+              GLTF, GLB, OBJ, and WebGL mesh JSON from SIDC codes via SVG
+              extrusion
             </p>
-            <ul className={styles.formatList}>
-              <li>
-                <code>gltf</code> - GL Transmission Format
-              </li>
-              <li>
-                <code>glb</code> - Binary GL Transmission Format
-              </li>
-              <li>
-                <code>obj</code> - Wavefront OBJ Format
-              </li>
-            </ul>
           </div>
         </div>
 
@@ -194,6 +225,18 @@ export default function Home(): JSX.Element {
               <li>
                 <code>gif</code> - GIF format (lossless with transparency)
               </li>
+              <li>
+                <code>glb</code> - Binary GLTF 3D model (MapLibre / WebGL)
+              </li>
+              <li>
+                <code>gltf</code> - GLTF 3D model JSON
+              </li>
+              <li>
+                <code>obj</code> - Wavefront OBJ 3D model
+              </li>
+              <li>
+                <code>mesh</code> - WebGL mesh JSON (vertices, normals, indices)
+              </li>
             </ul>
           </li>
           <li>
@@ -207,6 +250,24 @@ export default function Home(): JSX.Element {
           <li>
             <strong>height:</strong> Image height in pixels (optional, defaults
             to width)
+          </li>
+          <li>
+            <strong>depth:</strong> 3D extrusion depth (optional, default 3)
+          </li>
+          <li>
+            <strong>bevel:</strong> Enable beveled edges (optional, default true)
+          </li>
+          <li>
+            <strong>bevelThickness / bevelSize / bevelSegments:</strong> Bevel
+            tuning for 3D exports
+          </li>
+          <li>
+            <strong>targetSize:</strong> Scale 3D model to this max dimension
+            (optional, default 100)
+          </li>
+          <li>
+            <strong>flipY:</strong> Flip SVG Y-axis for Y-up WebGL (optional,
+            default true)
           </li>
         </ul>
 

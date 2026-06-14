@@ -27,7 +27,78 @@ By using this software, you acknowledge that:
 
 ## 🗒️ Roadmap
 
-- Generate 3D models for military symbols
+- SIDC-aware 3D profiles (frame depth by symbol category)
+- Tactical graphic 3D forms (area/line symbols)
+
+## 🧊 3D / WebGL Export
+
+The server extrudes milsymbol SVG paths into 3D meshes suitable for OpenGL, WebGL, Three.js, and MapLibre GL JS custom layers.
+
+### Formats
+
+| Extension | MIME type | Use case |
+|-----------|-----------|----------|
+| `glb` | `model/gltf-binary` | MapLibre custom 3D models, Three.js `GLTFLoader` |
+| `gltf` | `model/gltf+json` | GLTF JSON scene |
+| `obj` | `model/obj` | Legacy 3D tools |
+| `mesh` | `application/json` | Direct WebGL buffers (vertices, normals, indices) |
+
+### Examples
+
+```bash
+# GLB for MapLibre / Three.js
+curl -o symbol.glb "http://localhost:8080/api/APP6/10133000001207000000.glb?depth=5&targetSize=100"
+
+# WebGL mesh JSON
+curl "http://localhost:8080/api/APP6/10133000001207000000.mesh?depth=3"
+```
+
+### 3D query parameters
+
+- `depth` — extrusion depth (default `3`)
+- `bevel` — `true` / `false` (default `true`)
+- `bevelThickness`, `bevelSize`, `bevelSegments` — bevel geometry
+- `targetSize` — scale model so max dimension equals this value (default `100`)
+- `flipY` — flip SVG Y-down to Y-up for WebGL (default `true`)
+
+### MapLibre GL JS
+
+**Live preview:** http://localhost:8080/preview/maplibre
+
+Standalone HTML: `examples/maplibre-3d-symbol/` — see README in that folder.
+
+Load a GLB from this API and add it as a custom 3D model layer:
+
+```javascript
+const modelUrl = "http://localhost:8080/api/APP6/10133000001207000000.glb?depth=5";
+// Use with map.addLayer({ type: 'custom', renderingMode: '3d', ... })
+// or Three.js GLTFLoader inside a custom layer onRender callback
+```
+
+### WebGL mesh JSON
+
+The `mesh` format returns indexed geometry per SVG layer:
+
+```json
+{
+  "version": 1,
+  "sidc": "10133000001207000000",
+  "standard": "APP6",
+  "bounds": { "min": [...], "max": [...] },
+  "meshes": [
+    {
+      "name": "path-0-0",
+      "vertices": [x, y, z, ...],
+      "normals": [nx, ny, nz, ...],
+      "indices": [0, 1, 2, ...],
+      "color": "#36befc",
+      "opacity": 1
+    }
+  ]
+}
+```
+
+Upload `vertices` and `indices` directly to `gl.bufferData` for custom shaders.
 
 ## 🛠️ Prerequisites
 
@@ -142,7 +213,8 @@ http://localhost:8080/api/APP6/10133000001207000000.gif?size=500
 http://localhost:8080/api/APP6/10133000001207000000.webp?size=500
 http://localhost:8080/api/APP6/10133000001207000000.avif?size=500
 http://localhost:8080/api/APP6/10133000001207000000.svg?size=500
-http://localhost:8080/api/APP6/10133000001207000000.gif?size=500
+http://localhost:8080/api/APP6/10133000001207000000.glb?depth=5&targetSize=100
+http://localhost:8080/api/APP6/10133000001207000000.mesh?depth=3
 
 **Parameters:**
 

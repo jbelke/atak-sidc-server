@@ -88,6 +88,19 @@
   margin: 0.75rem 0;
 }
 
+.libraryLink {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #007cf0;
+  text-decoration: none;
+}
+
+.libraryLink:hover {
+  text-decoration: underline;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

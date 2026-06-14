@@ -47,6 +47,8 @@ yarn-error.log*
 *.swo
 .project
 .settings/
+!.settings/epics/
+!.settings/epics/**
 .classpath
 
 # Cache and Build artifacts
