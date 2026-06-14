@@ -22,6 +22,16 @@ export interface Symbol3DOptions {
    * extrusion, so geometric icons read as solid blobs.
    */
   frameOnly?: boolean;
+  /** Base64 PNG (no data: prefix) of the 2D symbol, textured onto the puck faces. */
+  iconTexturePng?: string;
+  /** Baked default pose: in-plane icon orientation, degrees. */
+  headingDegrees?: number;
+  /** Baked default pose: lean toward the (default) viewer, degrees. */
+  tiltDegrees?: number;
+  /** Bake a continuous spin animation, degrees/second (0 = none). */
+  spinDegPerSec?: number;
+  /** Presentation form hint recorded in the GLB (`puck` | `billboard`). */
+  form?: string;
   sidc?: string;
   standard?: string;
 }
@@ -33,6 +43,10 @@ export interface MeshPrimitive {
   indices: number[];
   color: string;
   opacity: number;
+  /** UVs (length = vertices/3 * 2) for textured faces. */
+  uvs?: number[];
+  /** Base64 PNG mapped as this primitive's baseColorTexture. */
+  texturePng?: string;
 }
 
 export interface Symbol3DMeshDocument {
@@ -44,6 +58,12 @@ export interface Symbol3DMeshDocument {
     max: [number, number, number];
   };
   meshes: MeshPrimitive[];
+  /** Baked default pose applied to the GLB root node. */
+  pose?: { headingDeg: number; tiltDeg: number };
+  /** Continuous spin animation about the face normal, degrees/second. */
+  spin?: { degPerSec: number };
+  /** Presentation form hint (`puck` | `billboard`). */
+  form?: string;
 }
 
 export const DEFAULT_EXTRUDE_OPTIONS: ExtrudeOptions = {

@@ -115,6 +115,25 @@ export function buildSymbolScene(
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
 
+  // Self-contained icon: lay the 2D symbol PNG on the puck's front & back faces
+  // so an external glTF viewer (ATAK, Cesium, Blender) shows a crisp, true-to-2D
+  // icon — the same trick the live viewer does, but baked into the asset.
+  if (options.iconTexturePng) {
+    const eps = Math.max(size.z * 0.02, 0.05);
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.y));
+    front.name = "icon-front";
+    front.position.set(center.x, center.y, box.max.z + eps);
+    front.userData.texturePng = options.iconTexturePng;
+    group.add(front);
+
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.y));
+    back.name = "icon-back";
+    back.position.set(center.x, center.y, box.min.z - eps);
+    back.rotation.y = Math.PI; // face outward
+    back.userData.texturePng = options.iconTexturePng;
+    group.add(back);
+  }
+
   group.position.sub(center);
 
   if (flipY) {
@@ -135,7 +154,11 @@ export function buildSymbolScene(
 
 export function groupToMeshDocument(
   group: THREE.Group,
-  metadata: Pick<Symbol3DOptions, "sidc" | "standard"> = {}
+  metadata: Pick<Symbol3DOptions, "sidc" | "standard"> & {
+    pose?: { headingDeg: number; tiltDeg: number };
+    spin?: { degPerSec: number };
+    form?: string;
+  } = {}
 ): Symbol3DMeshDocument {
   const meshes: MeshPrimitive[] = [];
   const bounds = new THREE.Box3();
@@ -198,6 +221,16 @@ export function groupToMeshDocument(
         : "#000000";
     const opacity = material.opacity ?? 1;
 
+    const texturePng = mesh.userData?.texturePng as string | undefined;
+    const uvAttr = geometry.attributes.uv;
+    let uvs: number[] | undefined;
+    if (texturePng && uvAttr) {
+      uvs = [];
+      for (let i = 0; i < uvAttr.count; i++) {
+        uvs.push(uvAttr.getX(i), uvAttr.getY(i));
+      }
+    }
+
     meshes.push({
       name: mesh.name || `mesh-${meshes.length}`,
       vertices,
@@ -205,6 +238,8 @@ export function groupToMeshDocument(
       indices,
       color,
       opacity,
+      uvs,
+      texturePng,
     });
   });
 
@@ -220,5 +255,8 @@ export function groupToMeshDocument(
       max: [max.x, max.y, max.z],
     },
     meshes,
+    pose: metadata.pose,
+    spin: metadata.spin,
+    form: metadata.form,
   };
 }

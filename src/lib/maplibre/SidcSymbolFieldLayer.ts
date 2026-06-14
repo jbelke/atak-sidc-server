@@ -247,20 +247,19 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     }
     this.lastFrameMs = nowMs;
 
-    // In-plane orientation of the icon: counter the basemap bearing (north-up),
-    // plus a fixed heading and the animated spin phase.
+    // In-plane orientation of the icon: counter the basemap bearing (north-up)
+    // plus a fixed heading. (Spin is NOT in-plane — see below.)
     const headingRad = (this.headingDegrees * Math.PI) / 180;
     const rotationZ = new THREE.Matrix4().makeRotationAxis(
       new THREE.Vector3(0, 0, 1),
-      -bearingRad + headingRad + this.spinPhaseRad
+      -bearingRad + headingRad
     );
 
     // Lean each puck up toward the viewer. The camera's horizontal look direction
     // (over the ground) at compass bearing B is d = (sinB, -cosB) in mercator
     // (y grows southward); rotating about the horizontal axis d×ẑ lifts the far
-    // edge so the face turns to the camera — a music-stand tilt that tracks the
-    // viewer no matter the bearing. A `billboard` form auto-sets that lean to the
-    // map pitch, so the face stays flat-on to the camera from any angle.
+    // edge so the face turns to the camera. A `billboard` form auto-sets that
+    // lean to the map pitch, so the face stays flat-on to the camera.
     const effectiveTiltDeg =
       this.form === "billboard" ? this.map.getPitch() : this.tiltDegrees;
     const tiltRad = (effectiveTiltDeg * Math.PI) / 180;
@@ -271,11 +270,20 @@ export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
     );
     const tilt = new THREE.Matrix4().makeRotationAxis(tiltAxis, tiltRad);
 
+    // SPIN turns each puck about the world VERTICAL axis (mercator +z = up).
+    // Applied OUTSIDE the lean, so a leaned puck sweeps around like a standee on
+    // a turntable — face → edge → back → face — revealing its 3D sides.
+    const spinVertical = new THREE.Matrix4().makeRotationAxis(
+      new THREE.Vector3(0, 0, 1),
+      this.spinPhaseRad
+    );
+
     for (const symbol of this.symbols) {
       const scale = symbol.meterScale * this.scaleMultiplier * zoomScale;
       const scaleM = new THREE.Matrix4().makeScale(scale, -scale, scale);
       symbol.group.matrix
         .makeTranslation(symbol.mercatorX, symbol.mercatorY, symbol.mercatorZ)
+        .multiply(spinVertical)
         .multiply(tilt)
         .multiply(scaleM)
         .multiply(rotationZ);

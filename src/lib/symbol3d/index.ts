@@ -64,6 +64,10 @@ export function parseSymbol3DOptions(
   const targetSize = searchParams.get("targetSize");
   const flipY = searchParams.get("flipY");
   const frameOnly = searchParams.get("frameOnly");
+  const heading = searchParams.get("heading");
+  const tilt = searchParams.get("tilt");
+  const spin = searchParams.get("spin");
+  const form = searchParams.get("form");
 
   return {
     extrude: parseExtrudeOptions(searchParams),
@@ -72,6 +76,10 @@ export function parseSymbol3DOptions(
     flipY: flipY !== null ? flipY === "true" || flipY === "1" : undefined,
     frameOnly:
       frameOnly !== null ? frameOnly === "true" || frameOnly === "1" : undefined,
+    headingDegrees: heading !== null ? parseFloat(heading) : undefined,
+    tiltDegrees: tilt !== null ? parseFloat(tilt) : undefined,
+    spinDegPerSec: spin !== null ? parseFloat(spin) : undefined,
+    form: form ?? undefined,
     sidc: metadata.sidc,
     standard: metadata.standard,
   };
@@ -86,6 +94,12 @@ export async function generateSymbol3D(
   const meshDocument = groupToMeshDocument(group, {
     sidc: options.sidc,
     standard: options.standard,
+    pose: {
+      headingDeg: options.headingDegrees ?? 0,
+      tiltDeg: options.tiltDegrees ?? 0,
+    },
+    spin: { degPerSec: options.spinDegPerSec ?? 0 },
+    form: options.form,
   });
   const data = await exportSymbol3D(group, format, meshDocument);
 

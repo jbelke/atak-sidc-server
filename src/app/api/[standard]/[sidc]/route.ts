@@ -148,6 +148,20 @@ export async function GET(
         sidc: sidcCode,
         standard,
       });
+
+      // Bake the crisp 2D icon onto the puck faces so the GLB is self-contained
+      // for external glTF clients (ATAK, Cesium). OPT-IN via ?bakeIcon=1 — the
+      // live gallery textures the faces itself, so a baked plane there would just
+      // get repainted flat by its material pass. `mesh`/`obj` stay geometry-only.
+      const bakeIcon = searchParams.get("bakeIcon");
+      if (
+        (format === "glb" || format === "gltf") &&
+        (bakeIcon === "1" || bakeIcon === "true")
+      ) {
+        const iconPng = await generateImage(symbolSVG, { width: 256, height: 256 }, "png");
+        symbol3DOptions.iconTexturePng = iconPng.toString("base64");
+      }
+
       const model3D = await convertSVGTo3D(symbolSVG, format, symbol3DOptions);
 
       if (format === "glb" && model3D instanceof ArrayBuffer) {
