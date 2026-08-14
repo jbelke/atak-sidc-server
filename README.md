@@ -4,7 +4,7 @@
 
 # ATAK SIDC Server
 
-**NATO military symbology as a service.** One SIDC in — vector, raster, or 3D glTF out.
+**NATO military symbology as a service.** Send a SIDC, get back vector, raster, or 3D glTF.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/Node-20%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
@@ -21,7 +21,7 @@
 ---
 
 A self-hosted HTTP service that turns a **SIDC** (Symbol Identification Code) into a rendered
-military symbol — as a vector, a raster image, or a 3D model. Symbols are drawn with
+military symbol: a vector, a raster image, or a 3D model. Symbols are drawn with
 [milsymbol 3](https://github.com/spatialillusions/milsymbol), rasterised with
 [sharp](https://sharp.pixelplumbing.com/), and extruded with [three.js](https://threejs.org/) for
 export as glTF, GLB, OBJ, or raw WebGL buffers.
@@ -33,6 +33,22 @@ curl -o usv.png "http://localhost:8080/api/APP6/10133000001207000000.png?size=51
 # The same symbol as a self-contained GLB for MapLibre, Three.js, Cesium, or ATAK
 curl -o usv.glb "http://localhost:8080/api/APP6/10133000001207000000.glb?frameOnly=1&bakeIcon=1&depth=5"
 ```
+
+## Who this is for
+
+Any system that has to draw a military symbol and would rather not embed a symbology engine in every
+client. The server renders; your client fetches a URL.
+
+| Audience | What it gives you |
+|---|---|
+| **C2, C3, C4ISR** | One symbol service behind web, desktop, and mobile clients, so a track renders identically in every seat |
+| **ATAK, WinTAK, iTAK** | GLB models and PNG icons over plain HTTP for plugins, TAK server integrations, and data packages |
+| **Mapping and GIS** | Symbols for MapLibre, Leaflet, OpenLayers, and Cesium, flat on the map or standing up in 3D |
+| **UAS and drone GCS** | Track symbology for operator displays, with heading, tilt, and spin baked into the model |
+| **Wargaming and simulation** | Bulk symbol generation for scenario editors, constructive sims, and after-action review |
+| **3D and game engines** | glTF, GLB, OBJ, and raw WebGL buffers for Three.js, Unity, Unreal, and custom renderers |
+| **Briefings and staff products** | Vector SVG and high-resolution PNG for documents, slides, and printed overlays |
+| **Training and analysis** | Exercise and simulation contexts are part of the SIDC, so training data never renders as live |
 
 ## Contents
 
@@ -54,9 +70,9 @@ curl -o usv.glb "http://localhost:8080/api/APP6/10133000001207000000.glb?frameOn
 
 | | |
 |---|---|
-| **2D output** | SVG, PNG, JPEG, GIF, WebP, AVIF — any size, transparent background |
+| **2D output** | SVG, PNG, JPEG, GIF, WebP, AVIF at any size, on a transparent background |
 | **3D output** | GLB, glTF, OBJ, and indexed mesh JSON ready for `gl.bufferData` |
-| **Both SIDC dialects** | Modern 20-digit *and* legacy 15-character codes, auto-detected |
+| **Both SIDC dialects** | Modern 20-digit and legacy 15-character codes, detected automatically |
 | **Catalog API** | Searchable symbol catalog filtered by set, affiliation, context, and echelon |
 | **Browser UI** | Symbol library plus a live MapLibre GL JS 3D preview |
 | **Production ready** | Docker Compose, dual-process PM2, health probe, env-driven config |
@@ -65,10 +81,10 @@ curl -o usv.glb "http://localhost:8080/api/APP6/10133000001207000000.glb?frameOn
 
 ### The two SIDC dialects
 
-Military symbology split into two incompatible code formats in 2014. This server accepts **both**
-and detects which you sent from the code itself — there is no mode to configure.
+Military symbology split into two incompatible code formats in 2014. This server accepts **both** and
+works out which one you sent from the code itself, so there is no mode to configure.
 
-**Modern — 20-digit numeric** (`10133000001207000000`), used by APP-6(D)/(E) and MIL-STD-2525D/E:
+**Modern: 20-digit numeric** (`10133000001207000000`), used by APP-6(D)/(E) and MIL-STD-2525D/E.
 
 ```
  10  0  3  13  0  0  00  001207  00  00
@@ -84,8 +100,8 @@ and detects which you sent from the code itself — there is no mode to configur
  └────────────────────────────────────── digits 1-2    Version
 ```
 
-**Legacy — 15-character alphanumeric** (`SFGPUCI-----USG`), used by APP-6(A)/(B)/(C) and
-MIL-STD-2525B/C. Pass it exactly as-is; the hyphens are valid in a URL path.
+**Legacy: 15-character alphanumeric** (`SFGPUCI-----USG`), used by APP-6(A)/(B)/(C) and
+MIL-STD-2525B/C. Pass it exactly as-is, since the hyphens are valid in a URL path.
 
 ```bash
 curl -o legacy.png "http://localhost:8080/api/2525/SFGPUCI-----USG.png?size=256"
@@ -95,29 +111,30 @@ curl -o legacy.png "http://localhost:8080/api/2525/SFGPUCI-----USG.png?size=256"
 
 | Standard | Edition | Published | SIDC format | Support |
 |---|---|---|---|---|
-| MIL-STD-2525 | A / B | 1996 / 1999 | 15-character | ⚠️ Parses — drawn per 2525C |
+| MIL-STD-2525 | A / B | Dec 1996 / Jan 1999 | 15-character | ⚠️ Parses, drawn per 2525C |
 | MIL-STD-2525 | **C** | Nov 2008 | 15-character | ✅ Implemented |
 | MIL-STD-2525 | **D** | Jun 2014 | 20-digit | ✅ Implemented |
-| MIL-STD-2525 | **E** | Dec 2022 | 20-digit | ✅ Implemented — rendering target |
-| STANAG 2019 / APP-6 | A | Dec 1999 | 15-character | ⚠️ Parses — drawn per APP-6(B) |
+| MIL-STD-2525 | **E** | Dec 2022 | 20-digit | ✅ Implemented, rendering target |
+| STANAG 2019 / APP-6 | A | Dec 1999 | 15-character | ⚠️ Parses, drawn per APP-6(B) |
 | STANAG 2019 / APP-6 | **B** | Jun 2008 | 15-character | ✅ Implemented |
-| STANAG 2019 / APP-6 | C | May 2011 | 15-character | ⚠️ Parses — drawn per APP-6(B) |
+| STANAG 2019 / APP-6 | C | May 2011 | 15-character | ⚠️ Parses, drawn per APP-6(B) |
 | STANAG 2019 / APP-6 | **D** | Oct 2017 | 20-digit | ✅ Implemented |
-| STANAG 2019 / APP-6 | **E** | 2023 | 20-digit | ✅ Implemented — rendering target |
-| FM 1-02.2 | — | — | 20-digit | ✅ Implemented |
+| STANAG 2019 / APP-6 | **E** | 2023 | 20-digit | ✅ Implemented, rendering target |
 
-✅ the edition's symbol set is implemented · ⚠️ codes in this edition share their dialect's structure
-so they parse and render, but icon coverage follows the implemented edition of that dialect
+✅ means the edition's symbol set is implemented. ⚠️ means codes in that edition share their
+dialect's structure, so they parse and render, but icon coverage follows the implemented edition of
+that dialect. FM 1-02.2 (US Army *Military Symbols*) is also implemented and shares the 20-digit
+dialect.
 
-Support is inherited from milsymbol 3.0 — see its
+Support is inherited from milsymbol 3.0. See its
 [symbology notes](https://github.com/spatialillusions/milsymbol) for per-symbol detail.
 
 > [!IMPORTANT]
 > **Rendering is uniform across editions by design.** Since milsymbol 3.0, every symbol is drawn as
-> closely as possible to MIL-STD-2525E / APP-6(E) / FM 1-02.2 *regardless of which edition the SIDC
-> came from*. A 2525C code and its APP-6(E) equivalent produce the same picture, so systems on
-> different editions stay visually interoperable. If you need a symbol drawn exactly as printed in an
-> older standard document, this is not the right tool.
+> closely as possible to MIL-STD-2525E, APP-6(E), and FM 1-02.2 no matter which edition the SIDC came
+> from. A 2525C code and its APP-6(E) equivalent produce the same picture, which keeps systems on
+> different editions visually interoperable. If you need a symbol drawn exactly as printed in an
+> older standard document, use a renderer that targets that edition.
 
 ### Choosing NATO or US framing
 
@@ -129,9 +146,9 @@ for NATO.
 /api/2525/10133000001207000000.png    → US framing
 ```
 
-In practice the two agree for most symbols — sampling 125 valid symbols across 25 symbol sets, only
-**~3%** rendered differently. Expect the toggle to matter for a minority of icons (some sea surface,
-land unit, and installation entities), not as a wholesale restyling.
+In practice the two agree for most symbols. Sampling 125 valid symbols across 25 symbol sets, only
+about **3%** rendered differently. Expect the toggle to matter for a minority of icons (some sea
+surface, land unit, and installation entities) rather than as a wholesale restyling.
 
 ### Client compatibility
 
@@ -142,11 +159,11 @@ land unit, and installation entities), not as a wholesale restyling.
 | ATAK / WinTAK, Cesium | `.glb?frameOnly=1&bakeIcon=1` | Use `bakeIcon` so the model carries its own texture |
 | Raw WebGL / OpenGL | `.mesh` | Indexed vertices, normals, and UVs as JSON |
 | Legacy 3D tooling | `.obj` | Geometry only, no materials |
-| Web / GIS / documents | `.svg` `.png` `.webp` `.avif` `.jpg` `.gif` | `.svg` scales losslessly; `.jpg` is flattened onto white |
+| Web, GIS, documents | `.svg` `.png` `.webp` `.avif` `.jpg` `.gif` | `.svg` scales losslessly, `.jpg` is flattened onto white |
 
 ## Quick start
 
-**Prerequisites** — Docker and Docker Compose, or Node.js 20+ for local development.
+**Prerequisites:** Docker and Docker Compose, or Node.js 20+ for local development.
 
 ```bash
 git clone https://github.com/jbelke/atak-sidc-server.git
@@ -188,7 +205,7 @@ GET /api/{standard}/{sidc}.{format}
 
 | Segment | Values | Description |
 |---------|--------|-------------|
-| `standard` | `APP6` \| `2525` | Frame family — see [choosing NATO or US framing](#choosing-nato-or-us-framing) |
+| `standard` | `APP6` \| `2525` | Frame family, see [choosing NATO or US framing](#choosing-nato-or-us-framing) |
 | `sidc` | `10133000001207000000` \| `SFGPUCI-----USG` | 20-digit or legacy 15-character code |
 | `format` | `svg` `png` `jpg` `jpeg` `gif` `webp` `avif` `glb` `gltf` `obj` `mesh` | Output format, given as a file extension |
 
@@ -196,16 +213,17 @@ GET /api/{standard}/{sidc}.{format}
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `size` | `100` | Symbol size, and the default output width/height |
+| `size` | `100` | Symbol size, and the default output width and height |
 | `width` | `size` | Output width in pixels (raster formats) |
 | `height` | `width` | Output height in pixels (raster formats) |
 
-Raster output is fitted to `width` × `height` on a transparent background; JPEG is flattened onto
-white because it has no alpha channel. 3D formats take their own parameters — see
+Raster output is fitted to `width` × `height` on a transparent background. JPEG is flattened onto
+white because it has no alpha channel. 3D formats take their own parameters, covered in
 [3D / WebGL export](#3d--webgl-export).
 
-An unrecognised extension returns `500 Unsupported format`. An unparseable SIDC does **not** error:
-milsymbol renders a placeholder symbol, so check codes upstream if you need strict validation.
+An unrecognised extension returns `500 Unsupported format`. An unparseable SIDC does **not** error,
+because milsymbol renders a placeholder symbol instead. Validate codes upstream if you need strict
+rejection.
 
 **Examples**
 
@@ -244,7 +262,8 @@ curl "http://localhost:8080/api/catalog?q=infantry&affiliation=hostile&echelon=p
 GET /api/health
 ```
 
-Returns `{"status":"ok","timestamp":"…"}`. Used by the Docker Compose healthcheck on both ports.
+Returns `{"status":"ok","timestamp":"2024-01-01T00:00:00.000Z"}`. Used by the Docker Compose
+healthcheck on both ports.
 
 ## 3D / WebGL export
 
@@ -269,19 +288,19 @@ MapLibre GL JS custom layers.
 | `bevelSegments` | `2` | Bevel curve resolution |
 | `targetSize` | `100` | Scale the model so its largest dimension equals this value |
 | `flipY` | `true` | Flip SVG Y-down to Y-up for WebGL |
-| `frameOnly` | `false` | Extrude only the affiliation frame — a coloured "puck" — and skip inner icon geometry |
-| `bakeIcon` | `false` | Bake the crisp 2D icon onto the puck faces as a PNG texture (`glb`/`gltf` only) |
+| `frameOnly` | `false` | Extrude only the affiliation frame (a coloured "puck") and skip inner icon geometry |
+| `bakeIcon` | `false` | Bake the crisp 2D icon onto the puck faces as a PNG texture (`glb` and `gltf` only) |
 | `heading` | `0` | Baked in-plane icon orientation, degrees |
 | `tilt` | `0` | Baked lean toward the default viewer, degrees |
 | `spin` | `0` | Baked continuous spin animation, degrees per second |
-| `form` | — | Presentation hint recorded in the model: `puck` or `billboard` |
+| `form` | none | Presentation hint recorded in the model: `puck` or `billboard` |
 
 Booleans accept `true` or `1`.
 
 > [!TIP]
 > **Reach for `frameOnly=1&bakeIcon=1` first.** milsymbol icons are stroke-based, so they do not
-> survive fill extrusion and read as solid blobs in 3D. That pair produces a self-contained GLB — an
-> extruded affiliation puck with the exact 2D icon textured onto its faces — which external glTF
+> survive fill extrusion and read as solid blobs in 3D. That pair produces a self-contained GLB: an
+> extruded affiliation puck with the exact 2D icon textured onto its faces, which external glTF
 > clients such as ATAK and Cesium render with true 2D parity. Clients that texture the faces
 > themselves, like the bundled MapLibre preview, can leave it off.
 
@@ -391,8 +410,8 @@ production build inside it, and reloads PM2.
 
 ### PM2
 
-[`ecosystem.config.js`](ecosystem.config.js) runs two forked Next.js processes — one on `8080`, one
-on `8081` — each with `autorestart` and a 1 GB memory ceiling, logging to `./logs`.
+[`ecosystem.config.js`](ecosystem.config.js) runs two forked Next.js processes, one on `8080` and one
+on `8081`, each with `autorestart` and a 1 GB memory ceiling, logging to `./logs`.
 
 ```bash
 yarn prod        # build, then start both processes
@@ -411,7 +430,7 @@ src/
 │   ├── library/                        # symbol browser UI
 │   └── preview/maplibre/               # live MapLibre 3D preview
 └── lib/
-    ├── symbol3d/                       # SVG → three.js → glTF / GLB / OBJ / mesh
+    ├── symbol3d/                       # SVG to three.js to glTF / GLB / OBJ / mesh
     ├── maplibre/                       # MapLibre custom 3D layers
     └── symbol-catalog/                 # SIDC catalog and filters
 examples/maplibre-3d-symbol/            # standalone HTML demo
@@ -426,7 +445,7 @@ public/                                 # static assets
 ## Contributing
 
 Issues and pull requests are welcome. Please run `yarn lint` and `yarn build` before opening a PR,
-and keep changes focused — a short description of the problem and the fix is enough.
+and keep changes focused. A short description of the problem and the fix is enough.
 
 ## Disclaimer
 
@@ -436,8 +455,8 @@ software, to the fullest extent permitted by applicable law.
 
 By using this software, you acknowledge that you use it at your own risk, that the authors and
 contributors are not responsible for any damage or issues arising from its use, and that no support
-or maintenance is guaranteed. It is not accredited for operational use and carries no
-certification against any edition of MIL-STD-2525 or APP-6.
+or maintenance is guaranteed. It is not accredited for operational use and carries no certification
+against any edition of MIL-STD-2525 or APP-6.
 
 ## License
 
