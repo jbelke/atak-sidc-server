@@ -1,0 +1,27 @@
+apiVersion: v2
+name: atak-sidc-server
+description: NATO APP-6 / MIL-STD-2525 military symbol server (SVG, PNG and 3D GLB) for ATAK and other tactical clients.
+type: application
+
+# Chart version — bump on every chart change (SemVer).
+version: 0.1.0
+# Version of the application packaged by this chart. Used as the default image
+# tag, so keep it in lockstep with package.json + the pushed container tag.
+appVersion: "0.1.0"
+
+home: https://github.com/jbelke/atak-sidc-server
+sources:
+  - https://github.com/jbelke/atak-sidc-server
+
+keywords:
+  - atak
+  - sidc
+  - milsymbol
+  - app-6
+  - mil-std-2525
+  - nato
+  - nextjs
+
+maintainers:
+  - name: Joshua Belke
+    url: https://github.com/jbelke

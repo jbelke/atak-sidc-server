@@ -1,0 +1,93 @@
+# Environment-specific overrides for the atak-sidc-server chart.
+#
+# values.yaml holds the baseline and is committed as-is. This file is the only
+# place you should need to edit per cluster, so upgrades stay a one-liner:
+#
+#   helm upgrade --install atak-sidc ./helm/atak-sidc-server \
+#     --namespace atak --create-namespace \
+#     -f ./helm/atak-sidc-server/values.override.yaml
+#
+# Everything below is commented out except the values you almost certainly
+# have to change. Uncomment only what you actually override — a short diff
+# against values.yaml is the point of this file.
+# ---------------------------------------------------------------------------
+
+image:
+  # Set this to the tag you actually pushed. With pullPolicy IfNotPresent the
+  # tag must be immutable: cut a new tag per release rather than re-pushing.
+  tag: ""
+  # registry: ghcr.io
+  # repository: jbelke/atak-sidc-server
+  # Pin by digest for the strongest guarantee that every node runs one build:
+  # digest: "sha256:..."
+
+# imagePullSecrets:
+#   - name: ghcr-creds
+
+ingress:
+  # REQUIRED: the hostname clients will actually call.
+  host: atak-sidc.local
+  # className: nginx
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt-prod
+  # tls:
+  #   - secretName: atak-sidc-tls
+  #     hosts:
+  #       - atak-sidc.local
+
+# --- Capacity -------------------------------------------------------------
+# Three replicas is the default redundancy policy; raise for load, do not go
+# below 3 without also lowering podDisruptionBudget.minAvailable.
+# replicaCount: 3
+
+# resources:
+#   limits:
+#     memory: 2Gi
+#   requests:
+#     cpu: 500m
+#     memory: 1Gi
+
+# autoscaling:
+#   enabled: true
+#   minReplicas: 3
+#   maxReplicas: 9
+#   targetCPUUtilizationPercentage: 75
+
+# --- Placement ------------------------------------------------------------
+# nodeSelector:
+#   kubernetes.io/arch: amd64
+# tolerations: []
+# priorityClassName: system-cluster-critical
+
+# Multi-zone clusters: make the spread hard rather than best-effort.
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: kubernetes.io/hostname
+#     whenUnsatisfiable: DoNotSchedule
+#   - maxSkew: 1
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: ScheduleAnyway
+
+# --- Application config ---------------------------------------------------
+# env:
+#   NODE_ENV: production
+#   NEXT_TELEMETRY_DISABLED: "1"
+
+# Values you do not want in git — better still, point envFrom at a Secret
+# managed by your secret store.
+# secretEnv: {}
+# envFrom:
+#   - secretRef:
+#       name: atak-sidc-external-secrets
+
+# --- Hardening ------------------------------------------------------------
+# networkPolicy:
+#   enabled: true
+#   ingressNamespaceSelector:
+#     kubernetes.io/metadata.name: ingress-nginx
+
+# Expose the second PM2 listener (8081) on the Service. Not needed for normal
+# traffic — replicas provide the redundancy — but some clients target it.
+# service:
+#   secondary:
+#     enabled: true

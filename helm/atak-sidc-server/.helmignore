@@ -1,0 +1,21 @@
+# Patterns to ignore when packaging the chart.
+# NOTE: helm's parser does not support gitignore-style "!" negation — a "!"
+# line makes the whole file unusable and `helm lint` then reports a missing
+# Chart.yaml. Keep every pattern positive.
+.DS_Store
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+
+# Environment-specific overrides never belong inside the packaged tarball.
+values.override.yaml
+values-*.yaml
+
+# Chart CI fixtures are useful in-repo, not in the tarball.
+ci/

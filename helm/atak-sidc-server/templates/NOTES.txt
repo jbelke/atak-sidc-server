@@ -1,0 +1,49 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} deployed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Replicas:   {{ if .Values.autoscaling.enabled }}{{ .Values.autoscaling.minReplicas }}–{{ .Values.autoscaling.maxReplicas }} (HPA){{ else }}{{ .Values.replicaCount }}{{ end }}
+Image:      {{ include "atak-sidc-server.image" . }} (pullPolicy: {{ .Values.image.pullPolicy }})
+
+Watch the rollout:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "atak-sidc-server.fullname" . }}
+
+{{- if .Values.ingress.enabled }}
+
+Reachable through the {{ .Values.ingress.className }} ingress at:
+{{- if .Values.ingress.hosts }}
+{{- range .Values.ingress.hosts }}
+{{- $h := .host }}
+{{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $h }}{{ .path }}
+{{- end }}
+{{- end }}
+{{- else }}
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- if eq .Values.ingress.host "atak-sidc.local" }}
+
+  ⚠  ingress.host is still the placeholder "atak-sidc.local".
+     Set a real hostname in values.override.yaml before this serves anyone.
+{{- end }}
+{{- end }}
+{{- if not .Values.ingress.tls }}
+
+  ⚠  No TLS configured (ingress.tls is empty) — traffic reaches the controller in cleartext.
+{{- end }}
+{{- else }}
+
+No ingress. Reach it in-cluster at
+  {{ include "atak-sidc-server.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+or port-forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "atak-sidc-server.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+
+Verify the deployment end to end:
+
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+Sample requests once it is up:
+
+  GET {{ .Values.healthPath }}
+  GET /api/APP6/10133000001207000000.svg
+  GET /api/2525/SFGPUCI-----USG.png?size=256
+  GET /api/catalog?q=infantry

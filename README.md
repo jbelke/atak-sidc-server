@@ -433,9 +433,9 @@ helm upgrade --install atak-sidc ./helm/atak-sidc-server \
 helm test atak-sidc -n atak
 ```
 
-`values.yaml` is the committed baseline; put per-cluster changes — image tag, hostname, TLS — in
+`values.yaml` is the committed baseline; put per-cluster changes (image tag, hostname, TLS) in
 `values.override.yaml`. See the [chart README](helm/atak-sidc-server/README.md) for the full value
-reference and the two footguns worth knowing (immutable image tags, PM2's hardcoded ports).
+reference and the two footguns worth knowing: immutable image tags, and PM2's hardcoded ports.
 
 ## Project structure
 

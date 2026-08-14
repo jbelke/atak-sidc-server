@@ -1,0 +1,25 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- $replicas := ternary (int .Values.autoscaling.minReplicas) (int .Values.replicaCount) .Values.autoscaling.enabled -}}
+{{- if lt $replicas 2 }}
+{{- fail (printf "podDisruptionBudget.enabled requires at least 2 replicas, got %d. Lower podDisruptionBudget or raise replicaCount." $replicas) }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "atak-sidc-server.fullname" . }}
+  labels:
+    {{- include "atak-sidc-server.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "atak-sidc-server.selectorLabels" . | nindent 6 }}
+{{- end }}

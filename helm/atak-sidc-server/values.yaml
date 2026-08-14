@@ -1,0 +1,355 @@
+# Default values for atak-sidc-server.
+#
+# These are the *baseline* values and are meant to be committed and left alone.
+# Per-environment changes belong in values.override.yaml (see that file), which
+# is applied on top:
+#
+#   helm upgrade --install atak-sidc ./helm/atak-sidc-server \
+#     -f ./helm/atak-sidc-server/values.override.yaml
+#
+# ---------------------------------------------------------------------------
+
+# -- Number of application pods. Three by default: survives one node failure
+# and one voluntary disruption (drain/upgrade) while still serving traffic.
+# Keep this >= 3 unless you also lower podDisruptionBudget.minAvailable.
+replicaCount: 3
+
+image:
+  # -- Registry hostname. Leave empty to use the daemon default (Docker Hub).
+  registry: ghcr.io
+  # -- Image repository (without registry and tag).
+  repository: jbelke/atak-sidc-server
+  # -- Image tag. Empty string means "use Chart.appVersion", which keeps the
+  # chart and the app version in lockstep instead of chasing :latest.
+  tag: ""
+  # -- Pin by digest instead of tag (sha256:...). Takes precedence over tag.
+  digest: ""
+  # -- IfNotPresent avoids a registry round-trip on every pod start, so nodes
+  # that already cached the layers restart instantly and a registry outage
+  # cannot stop a rescheduled pod. This is safe because tags are immutable
+  # here (each release gets a new tag/digest). If you ever push a mutable tag
+  # such as :latest or :main, switch this to Always.
+  pullPolicy: IfNotPresent
+
+# -- Secrets used to pull from a private registry, e.g. [{name: ghcr-creds}].
+imagePullSecrets: []
+
+# -- Override the generated chart name / release-qualified name.
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Labels added to every object rendered by this chart.
+commonLabels: {}
+# -- Annotations added to every object rendered by this chart.
+commonAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Ports
+#
+# Single source of truth: the container ports below also drive the ConfigMap
+# (PORT / PM2_PORT), the Service, and the probes.
+#
+# NOTE: ecosystem.config.js hardcodes 8080 and 8081 in each PM2 app's `env`
+# block, and PM2's per-app env wins over the container environment. Changing
+# the numbers here therefore requires editing ecosystem.config.js too — the
+# ConfigMap alone will not move the listeners.
+# ---------------------------------------------------------------------------
+containerPorts:
+  # -- Primary Next.js listener (PM2 app atak-sidc-server-1).
+  http: 8080
+  # -- Second PM2 listener (PM2 app atak-sidc-server-2), same app, same routes.
+  pm2: 8081
+
+service:
+  type: ClusterIP
+  # -- Port the Service publishes for the primary listener.
+  port: 8080
+  # -- nodePort for the primary listener (only when type is NodePort/LoadBalancer).
+  nodePort: ""
+  secondary:
+    # -- Also publish the second PM2 listener on the Service. Off by default:
+    # in Kubernetes redundancy comes from replicas, so one endpoint per pod
+    # keeps load balancing honest. Turn on if a client targets 8081 directly.
+    enabled: false
+    port: 8081
+    nodePort: ""
+  annotations: {}
+  # -- Static cluster IP, or "None" for a headless Service.
+  clusterIP: ""
+  sessionAffinity: None
+  # -- Only used with type LoadBalancer.
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+  externalTrafficPolicy: ""
+
+ingress:
+  # -- Enabled by default: ingress-nginx is the assumed edge for this chart.
+  enabled: true
+  # -- IngressClass to bind to. Must match an installed controller
+  # (`kubectl get ingressclass`).
+  className: nginx
+  # -- Single-host shortcut. Ignored when `hosts` below is set.
+  # CHANGE THIS in values.override.yaml — it is a placeholder, not a real name.
+  host: atak-sidc.local
+  path: /
+  pathType: Prefix
+  annotations:
+    # Symbol responses (PNG/GLB) are generated per request; give the renderer
+    # room before the proxy gives up.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m
+    # The app already emits its own CORS headers (next.config.js); do not let
+    # the controller add a second, conflicting set.
+    nginx.ingress.kubernetes.io/enable-cors: "false"
+  # -- Multi-host / multi-path form. When non-empty this replaces `host`.
+  # hosts:
+  #   - host: symbols.example.mil
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  hosts: []
+  # -- TLS blocks, e.g.
+  #   - secretName: atak-sidc-tls
+  #     hosts: [symbols.example.mil]
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Application configuration
+#
+# `env` becomes a ConfigMap consumed via envFrom, so editing a value here and
+# re-running helm rolls the pods automatically (the Deployment carries a
+# checksum annotation).
+# ---------------------------------------------------------------------------
+env:
+  NODE_ENV: production
+  NEXT_TELEMETRY_DISABLED: "1"
+
+# -- Sensitive values. Rendered into a Secret and loaded via envFrom.
+# Prefer an external secret manager and `envFrom` below for real deployments.
+secretEnv: {}
+
+# -- Raw container env entries, for valueFrom/fieldRef style values.
+extraEnv: []
+#  - name: POD_NAME
+#    valueFrom:
+#      fieldRef:
+#        fieldPath: metadata.name
+
+# -- Existing ConfigMaps/Secrets to load wholesale.
+envFrom: []
+#  - secretRef:
+#      name: atak-sidc-external-secrets
+
+# ---------------------------------------------------------------------------
+# Resources
+#
+# Mirrors docker-compose (2Gi limit / 1Gi reservation). PM2 itself restarts an
+# app at 1G RSS (max_memory_restart), so the 2Gi limit leaves headroom for two
+# workers plus the sharp/canvas native heaps.
+# ---------------------------------------------------------------------------
+resources:
+  limits:
+    memory: 2Gi
+    # CPU limits are intentionally unset: throttling a render request is worse
+    # than letting it burst. Set one only if you need strict multi-tenancy.
+  requests:
+    cpu: 250m
+    memory: 1Gi
+
+# ---------------------------------------------------------------------------
+# Probes — all hit /api/health, which is a static 200 from the Next.js route.
+# ---------------------------------------------------------------------------
+# -- Gives the container time to boot PM2 + Next before liveness can kill it.
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 24
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  # No initial delay: the startup probe above already gates this one.
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+  successThreshold: 1
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 0
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# -- Path served by all three probes.
+healthPath: /api/health
+
+# ---------------------------------------------------------------------------
+# Availability
+# ---------------------------------------------------------------------------
+podDisruptionBudget:
+  # -- With replicaCount 3, minAvailable 2 lets a node drain proceed one pod at
+  # a time and never drops below two serving replicas.
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: ""   # mutually exclusive with minAvailable
+
+autoscaling:
+  # -- Off by default; replicaCount governs. Turn on and the chart stops
+  # managing replicas (HPA owns them).
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 9
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
+  behavior: {}
+
+# -- Spread replicas over nodes so three pods are not three tenants of one
+# machine. ScheduleAnyway (not DoNotSchedule) so single-node dev clusters and
+# small clusters still schedule all three. A constraint with no labelSelector
+# gets this release's selector labels injected automatically.
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+
+# -- Extra scheduling controls. Merged as-is into the pod spec.
+affinity: {}
+nodeSelector: {}
+tolerations: []
+priorityClassName: ""
+
+# -- Rolling update strategy. maxUnavailable 0 keeps all three replicas serving
+# during an upgrade; maxSurge 1 adds one new pod at a time.
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# -- Seconds the pod gets to finish in-flight renders before SIGKILL.
+terminationGracePeriodSeconds: 30
+
+# -- Container lifecycle hooks. The preStop sleep is the fix for the classic
+# rolling-upgrade 502: endpoint removal and SIGTERM race each other, so the
+# ingress controller can still send requests to a pod that already began
+# shutting down. Sleeping first lets the endpoint drop propagate. Set to {} to
+# disable.
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sh", "-c", "sleep 5"]
+
+# -- Seconds a new pod must stay Ready before it counts as available.
+minReadySeconds: 5
+
+# -- Old ReplicaSets kept for rollback.
+revisionHistoryLimit: 5
+
+# ---------------------------------------------------------------------------
+# Security
+#
+# The image runs as the `node` user (uid/gid 1000) and drops all capabilities.
+# readOnlyRootFilesystem stays false because `next start` writes its ISR cache
+# under /app/.next/cache; the logs dir is a separate volume below.
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount rather than sharing `default`.
+  create: true
+  name: ""
+  annotations: {}
+  # -- The app makes no Kubernetes API calls, so it needs no token.
+  automountServiceAccountToken: false
+
+networkPolicy:
+  # -- Off by default because it needs to know your ingress controller's
+  # namespace. Turn on in hardened clusters.
+  enabled: false
+  # -- Namespace label selector for allowed ingress sources.
+  ingressNamespaceSelector:
+    kubernetes.io/metadata.name: ingress-nginx
+  # -- Extra raw ingress rules appended to the generated one.
+  extraIngress: []
+  # -- Egress rules. Empty list means egress is not restricted by this policy.
+  egress: []
+
+# ---------------------------------------------------------------------------
+# Storage
+#
+# PM2 writes ./logs/{out,error}-{8080,8081}.log inside the container. An
+# emptyDir keeps that write traffic out of the container layer and off the
+# node's image filesystem quota; logs still reach stdout via `kubectl logs`
+# only if PM2 is configured to do so, so treat this as scratch space.
+# ---------------------------------------------------------------------------
+logs:
+  enabled: true
+  mountPath: /app/logs
+  # -- emptyDir size cap. Empty string = no limit.
+  sizeLimit: 512Mi
+
+persistence:
+  # -- Off by default: the app is stateless and rendering is deterministic.
+  # Enable only if you add an on-disk render cache.
+  enabled: false
+  mountPath: /app/cache
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+  annotations: {}
+  existingClaim: ""
+
+# -- Additional volumes / mounts, verbatim pod-spec syntax.
+extraVolumes: []
+extraVolumeMounts: []
+
+# -- Additional containers.
+initContainers: []
+sidecars: []
+
+# -- Pod-level metadata.
+podAnnotations: {}
+podLabels: {}
+
+# -- Roll pods on every ConfigMap/Secret change. Leave on; it is the difference
+# between "config applied" and "config applied at some point in the future".
+rollOnConfigChange: true
+
+# -- Override the image entrypoint (default is pm2-runtime ecosystem.config.js).
+command: []
+args: []
+
+# -- Set the pod hostAliases / dnsConfig if the cluster needs them.
+hostAliases: []
+dnsPolicy: ""
+dnsConfig: {}
+
+tests:
+  # -- `helm test` pod that curls /api/health through the Service.
+  enabled: true
+  image:
+    registry: ""
+    repository: curlimages/curl
+    tag: "8.11.1"
+    pullPolicy: IfNotPresent
