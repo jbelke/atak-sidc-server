@@ -419,6 +419,24 @@ yarn prod        # build, then start both processes
 ./pm2-reload.sh  # reload both processes with a refreshed environment
 ```
 
+### Kubernetes (Helm)
+
+[`helm/atak-sidc-server`](helm/atak-sidc-server) packages the server for Kubernetes: three replicas by
+default for redundancy, an ingress-nginx `Ingress`, a PodDisruptionBudget, and `/api/health` wired to
+all three probes.
+
+```bash
+helm upgrade --install atak-sidc ./helm/atak-sidc-server \
+  --namespace atak --create-namespace \
+  -f ./helm/atak-sidc-server/values.override.yaml
+
+helm test atak-sidc -n atak
+```
+
+`values.yaml` is the committed baseline; put per-cluster changes — image tag, hostname, TLS — in
+`values.override.yaml`. See the [chart README](helm/atak-sidc-server/README.md) for the full value
+reference and the two footguns worth knowing (immutable image tags, PM2's hardcoded ports).
+
 ## Project structure
 
 ```
@@ -438,6 +456,40 @@ public/                                 # static assets
 ```
 
 ## Roadmap
+
+### Text amplifiers
+
+A SIDC identifies *what* a symbol is. The amplifiers carry everything else: who it belongs to, how
+strong it is, when it was reported. The plan is to expose all 21 MIL-STD-2525D and APP-6 amplifier
+fields as query parameters, mapped onto the milsymbol options that already implement them.
+
+| Group | Parameters |
+|---|---|
+| Identity | `uniqueDesignation`, `higherFormation`, `commonIdentifier`, `type`, `platformType`, `specialHeadquarters` |
+| Strength and status | `quantity`, `reinforcedReduced`, `combatEffectiveness`, `evaluationRating`, `signatureEquipment`, `equipmentTeardownTime` |
+| Kinematics | `direction`, `speed`, `altitudeDepth`, `location` |
+| Reporting | `dtg`, `staffComments`, `additionalInformation`, `iffSif`, `hostile` |
+
+Three things this has to get right:
+
+- **Availability is symbol-dependent.** Not every amplifier applies to every symbol set. Measured
+  against milsymbol 3.0, a land unit accepts all 21 and land equipment 20, but air and sea surface
+  symbols accept only 10 each. The API should ignore inapplicable amplifiers rather than fail.
+- **Amplifiers change the symbol extent.** Adding a designation, direction, and speed to a land unit
+  grows its bounding box from 158 × 135.5 to 363 × 239.5. The meaning of `size`, `width`, and
+  `height` needs to be defined against the amplified extent, not the bare frame.
+- **3D needs a policy.** The 3D pipeline extrudes SVG fill paths, and amplifier text is stroke-based
+  and sits outside the frame. Each amplifier has to be baked into the puck texture, extruded as
+  separate geometry, or dropped from 3D exports.
+
+### Kinematics
+
+- [ ] Direction-of-movement leader via `direction`, with `speedLeader` controlling leader length
+- [ ] Speed and altitude/depth amplifiers on the symbol
+- [ ] Drive the existing 3D `heading` parameter from `direction`, so an extruded symbol faces the way
+      its track is moving
+
+### Also planned
 
 - [ ] SIDC-aware 3D profiles (frame depth by symbol category)
 - [ ] Tactical graphic 3D forms (area and line symbols)
