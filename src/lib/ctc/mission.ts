@@ -40,13 +40,21 @@ export function missionConfig(partial: Partial<MissionConfig> & Pick<MissionConf
 const EARTH_RADIUS_M = 6_371_008.8;
 const RAD = Math.PI / 180;
 
+/** Longitude in [-180, 180). */
+function wrapLon(lon: number): number {
+  return ((((lon + 180) % 360) + 360) % 360) - 180;
+}
+
 /**
- * Equirectangular east/north metres from the origin corner. Exact to invert,
- * and well under one position step of error across a 150 km AO.
+ * Equirectangular east/north metres from the origin corner, scaled by the
+ * origin's latitude. Exact to invert. A decoded position is within one step q
+ * of the original up to 85 degrees latitude (150 km AO: at most 10.6 m from
+ * rounding, 11.3 m at 85 S). The AO is square in these coordinates, not on
+ * the ground: its north edge is 4% shorter than its south edge at 60 N.
  */
 export function toLocal(origin: AoOrigin, lat: number, lon: number): { east: number; north: number } {
   return {
-    east: EARTH_RADIUS_M * Math.cos(origin.lat * RAD) * (lon - origin.lon) * RAD,
+    east: EARTH_RADIUS_M * Math.cos(origin.lat * RAD) * wrapLon(lon - origin.lon) * RAD,
     north: EARTH_RADIUS_M * (lat - origin.lat) * RAD,
   };
 }
@@ -54,7 +62,7 @@ export function toLocal(origin: AoOrigin, lat: number, lon: number): { east: num
 export function fromLocal(origin: AoOrigin, east: number, north: number): { lat: number; lon: number } {
   return {
     lat: origin.lat + north / EARTH_RADIUS_M / RAD,
-    lon: origin.lon + east / (EARTH_RADIUS_M * Math.cos(origin.lat * RAD)) / RAD,
+    lon: wrapLon(origin.lon + east / (EARTH_RADIUS_M * Math.cos(origin.lat * RAD)) / RAD),
   };
 }
 
