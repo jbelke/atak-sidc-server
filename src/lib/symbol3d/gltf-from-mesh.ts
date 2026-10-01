@@ -214,6 +214,18 @@ export async function meshDocumentToGLTF(
 ): Promise<string> {
   const document = buildDocument(meshDocument);
   const io = new NodeIO();
-  const json = await io.writeJSON(document);
+  const { json, resources } = await io.writeJSON(document);
+  // writeJSON names external files (buffer.bin, textures). A single .gltf
+  // response has nowhere to put them, so embed each one as a data URI.
+  const embed = (uri: string | undefined, mimeType: string) =>
+    uri && resources[uri]
+      ? `data:${mimeType};base64,${Buffer.from(resources[uri]).toString("base64")}`
+      : uri;
+  for (const buffer of json.buffers ?? []) {
+    buffer.uri = embed(buffer.uri, "application/octet-stream");
+  }
+  for (const image of json.images ?? []) {
+    image.uri = embed(image.uri, image.mimeType ?? "image/png");
+  }
   return JSON.stringify(json);
 }

@@ -54,6 +54,22 @@ test("GLB is a binary glTF", async () => {
   assert.equal(Buffer.from(await res.arrayBuffer()).subarray(0, 4).toString("ascii"), "glTF");
 });
 
+test("glTF and OBJ carry geometry, and 3D query parameters reach the model", async () => {
+  const gltf = await get(`/api/APP6/${LAND_UNIT}.gltf`);
+  assert.equal(gltf.headers.get("content-type"), "model/gltf+json");
+  const gltfJson = await gltf.json();
+  assert.equal(gltfJson.asset.version, "2.0");
+  // One self-contained file: no buffer.bin beside it.
+  assert.match(gltfJson.buffers[0].uri, /^data:application\/octet-stream;base64,/);
+  const obj = await (await get(`/api/APP6/${LAND_UNIT}.obj`)).text();
+  assert.match(obj, /^v /m);
+  assert.match(obj, /^f /m);
+  const mesh = await (await get(`/api/APP6/${LAND_UNIT}.mesh?tilt=20&spin=15&form=puck`)).json();
+  assert.equal(mesh.pose.tiltDeg, 20);
+  assert.equal(mesh.spin.degPerSec, 15);
+  assert.equal(mesh.form, "puck");
+});
+
 test("the 3D heading defaults from direction, and heading wins when both are set", async () => {
   const fromDirection = await (await get(`/api/APP6/${LAND_UNIT}.mesh?direction=90`)).json();
   assert.equal(fromDirection.pose.headingDeg, 90);
