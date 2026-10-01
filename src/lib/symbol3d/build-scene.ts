@@ -5,10 +5,10 @@ import { classifySymbolPath } from "./path-role";
 import {
   DEFAULT_EXTRUDE_OPTIONS,
   DEFAULT_TARGET_SIZE,
-  ExtrudeOptions,
-  MeshPrimitive,
-  Symbol3DMeshDocument,
-  Symbol3DOptions,
+  type ExtrudeOptions,
+  type MeshPrimitive,
+  type Symbol3DMeshDocument,
+  type Symbol3DOptions,
 } from "./types";
 
 // The inner entity icon is extruded thicker than the frame and then CENTERED on

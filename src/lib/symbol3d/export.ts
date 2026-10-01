@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter";
 import { meshDocumentToGLB, meshDocumentToGLTF } from "./gltf-from-mesh";
-import { Symbol3DFormat, Symbol3DMeshDocument } from "./types";
+import type { Symbol3DFormat, Symbol3DMeshDocument } from "./types";
 
 function createExportScene(group: THREE.Group): THREE.Scene {
   const scene = new THREE.Scene();

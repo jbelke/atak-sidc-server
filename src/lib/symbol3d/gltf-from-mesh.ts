@@ -6,7 +6,7 @@ import {
   type Texture,
 } from "@gltf-transform/core";
 import * as THREE from "three";
-import { Symbol3DMeshDocument } from "./types";
+import type { Symbol3DMeshDocument } from "./types";
 
 function hexToLinearRgb(hex: string): [number, number, number] {
   const normalized = hex.replace("#", "");

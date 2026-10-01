@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { buildSymbolScene, groupToMeshDocument } from "./build-scene";
 import { exportSymbol3D } from "./export";
-import {
+import type {
   ExtrudeOptions,
   Symbol3DFormat,
   Symbol3DMeshDocument,
