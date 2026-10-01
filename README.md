@@ -286,6 +286,10 @@ field that the [country label](#the-two-sidc-dialects) would otherwise use (`uni
 air and sea, `staffComments` on land units), your text wins. 3D formats do not draw text
 amplifiers, but `direction` sets the model's default heading when `heading` is not given.
 
+`quantity` (field C) is an equipment field and shares the top-centre spot with the echelon mark
+(field B) of units. milsymbol and the reference picker both draw it there on a land unit too, where
+it covers the echelon mark; this server does the same rather than move it.
+
 Text positions follow the MIL-STD-2525D / APP-6(D) field grid and match the reference picker at
 [sidc.milsymb.net](https://sidc.milsymb.net/#/APP6) for ten symbol types (land unit, HQ unit,
 equipment, installation, dismounted, air, space, sea surface, subsurface, activity); see
