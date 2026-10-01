@@ -8,6 +8,7 @@
     "build:prod": "DISABLE_ESLINT_PLUGIN=true next build",
     "start": "next start -p 8080",
     "lint": "next lint",
+    "test": "node --experimental-strip-types --test src/lib/symbol-catalog/edition-e.test.ts",
     "lint:fix": "next lint --fix",
     "prod": "next build && pm2 start ecosystem.config.js"
   },

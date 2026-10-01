@@ -57,11 +57,13 @@ const ISO3166_NUMERIC_TO_ALPHA3: Record<string, string> = {
 };
 
 /**
- * Return the alpha-3 country code that a 30-digit SIDC carries in
- * positions 28-30, or "" when the SIDC is shorter, the digits are "000",
- * or the code is not an ISO 3166-1 country.
+ * Country label for digits 28-30 of a 30-digit APP-6(E) / 2525E SIDC.
+ * Returns the ISO 3166-1 alpha-3 code, the three digits when they are not
+ * an assigned country, or "" for a shorter code or 000 (no country).
  */
 export function countryFromSidc(sidc: string): string {
   if (sidc.length < 30) return "";
-  return ISO3166_NUMERIC_TO_ALPHA3[sidc.slice(27, 30)] ?? "";
+  const numeric = sidc.slice(27, 30);
+  if (!/^\d{3}$/.test(numeric) || numeric === "000") return "";
+  return ISO3166_NUMERIC_TO_ALPHA3[numeric] ?? numeric;
 }

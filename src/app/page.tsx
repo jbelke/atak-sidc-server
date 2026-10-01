@@ -200,7 +200,8 @@ export default function Home(): JSX.Element {
             <strong>standard:</strong> Symbol standard (APP6 or 2525)
           </li>
           <li>
-            <strong>sidc:</strong> 20-digit Symbol ID Code
+            <strong>sidc:</strong> 20-digit code, or 30-digit APP-6(E) / 2525E
+            code (frame shape and country in the last 10 digits)
           </li>
           <li>
             <strong>extension:</strong> Output format:

@@ -72,7 +72,7 @@ client. The server renders; your client fetches a URL.
 |---|---|
 | **2D output** | SVG, PNG, JPEG, GIF, WebP, AVIF at any size, on a transparent background |
 | **3D output** | GLB, glTF, OBJ, and indexed mesh JSON ready for `gl.bufferData` |
-| **Both SIDC dialects** | Modern 20-digit and legacy 15-character codes, detected automatically |
+| **SIDC dialects** | Legacy 15-character, modern 20-digit, and APP-6(E) / 2525E 30-digit codes, detected automatically |
 | **Catalog API** | Searchable symbol catalog filtered by set, affiliation, context, and echelon |
 | **Browser UI** | Symbol library plus a live MapLibre GL JS 3D preview |
 | **Production ready** | Docker Compose, dual-process PM2, health probe, env-driven config |
@@ -84,7 +84,9 @@ client. The server renders; your client fetches a URL.
 Military symbology split into two incompatible code formats in 2014. This server accepts **both** and
 works out which one you sent from the code itself, so there is no mode to configure.
 
-**Modern: 20-digit numeric** (`10133000001207000000`), used by APP-6(D)/(E) and MIL-STD-2525D/E.
+**Modern numeric** (`10133000001207000000`), used by APP-6(D)/(E) and MIL-STD-2525D/E.
+D codes are 20 digits. E codes are those same 20 digits plus an optional 10-digit tail, 30 digits
+in all. The first 20 digits mean the same thing in both editions.
 
 ```
  10  0  3  13  0  0  00  001207  00  00
@@ -98,6 +100,45 @@ works out which one you sent from the code itself, so there is no mode to config
  │   │  └─────────────────────────────── digit 4       Standard identity (3 = friend)
  │   └────────────────────────────────── digit 3       Context (0 = reality)
  └────────────────────────────────────── digits 1-2    Version
+```
+
+#### Digits 21-30, APP-6(E) and MIL-STD-2525E only
+
+A 20-digit code is still valid: it is the same symbol with the normal frame and no country. The
+tail is how E records a frame-shape override and a country. Both `/api/APP6` and `/api/2525` honor it.
+
+```
+ 00  2  0000  840
+ │   │  │     └── digits 28-30  Country. ISO 3166-1 numeric. 840 United States, 826 United Kingdom. 000 none.
+ │   │  └──────── digits 24-27  Reserved. Not used.
+ │   └─────────── digit 23      Frame shape. 0 keeps the frame the symbol set already uses.
+ └─────────────── digits 21-22  Modifier extensions. 00 changes nothing.
+```
+
+Digits 21 and 22 are an extra leading digit for the sector 1 and sector 2 modifiers
+(digits 17-18 and 19-20). E uses them to make modifier codes three digits long. milsymbol reads
+them, so a non-zero value here changes the picture. Digits 24-27 are ignored.
+
+| Digit 23 | Frame drawn |
+|---|---|
+| `0` | The symbol set's normal frame |
+| `1` | Space |
+| `2` | Air |
+| `3` | Land unit |
+| `4` | Land equipment and sea surface |
+| `5` | Land installation |
+| `6` | Dismounted individual |
+| `7` | Sea subsurface |
+| `8` | Activity or event |
+| `9` | Cyberspace |
+| `A` | No frame |
+
+The country is drawn as the ISO 3166-1 alpha-3 code: `840` becomes `USA`, `826` becomes `GBR`.
+A numeric code that is not an assigned country is drawn as those three digits. `000` draws no country.
+
+```bash
+# Friend infantry, drawn in an air frame, country United States
+curl -o infantry.png "http://localhost:8080/api/APP6/130310000012110000000020000840.png?size=256"
 ```
 
 **Legacy: 15-character alphanumeric** (`SFGPUCI-----USG`), used by APP-6(A)/(B)/(C) and
@@ -126,13 +167,8 @@ dialect's structure, so they parse and render, but icon coverage follows the imp
 that dialect. FM 1-02.2 (US Army *Military Symbols*) is also implemented and shares the 20-digit
 dialect.
 
-A 30-digit E code is the 20-digit code plus 10 more digits. Digit 23 overrides the frame shape
-(for example, a ground unit drawn in an air frame). Digits 28-30 are the ISO 3166 numeric country
-code. The server converts it to the 3-letter code (`840` becomes `USA`) and draws it as the country
-label (field AC). milsymbol shows that label on equipment, installations, and activities, but not
-on land units or sea symbols. `000` or an unknown code draws no label.
-
-Support is inherited from milsymbol 3.0. See its
+See [digits 21-30](#digits-21-30-app-6e-and-mil-std-2525e-only) for the E frame-shape and country
+fields. Support is inherited from milsymbol 3.0. See its
 [symbology notes](https://github.com/spatialillusions/milsymbol) for per-symbol detail.
 
 > [!IMPORTANT]
@@ -238,6 +274,8 @@ curl -o symbol.svg  "http://localhost:8080/api/APP6/10133000001207000000.svg?siz
 curl -o symbol.png  "http://localhost:8080/api/2525/10133000001207000000.png?size=500"
 curl -o symbol.webp "http://localhost:8080/api/APP6/10133000001207000000.webp?width=256&height=256"
 curl -o legacy.png  "http://localhost:8080/api/2525/SFGPUCI-----USG.png?size=256"
+# 30-digit E code: friend infantry, air frame (digit 23 = 2), United States (840)
+curl -o infantry.png "http://localhost:8080/api/APP6/130310000012110000000020000840.png?size=256"
 ```
 
 ### Browse the symbol catalog

@@ -19,7 +19,7 @@ Optional query parameters:
 
 | Param | Default | Description |
 |-------|---------|-------------|
-| `sidc` | `10133000001207000000` | 20-digit SIDC |
+| `sidc` | `10133000001207000000` | 20-digit SIDC, or 30-digit APP-6(E) / 2525E |
 | `standard` | `APP6` | `APP6` or `2525` |
 | `depth` | `5` | Extrusion depth |
 | `targetSize` | `80` | Model max dimension before map scale |
