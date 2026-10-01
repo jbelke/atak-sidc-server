@@ -19,6 +19,36 @@ import styles from "./library.module.css";
 
 const PAGE_SIZE = 48;
 
+/** The 21 text amplifiers: milsymbol option, label, MIL-STD-2525D field letter. */
+const AMPLIFIER_FIELDS: Array<[string, string, string]> = [
+  ["additionalInformation", "Additional information", "H"],
+  ["altitudeDepth", "Altitude / depth", "X"],
+  ["combatEffectiveness", "Combat effectiveness", "K"],
+  ["commonIdentifier", "Common identifier", "AF"],
+  ["direction", "Direction of movement (deg)", "Q"],
+  ["dtg", "Date-time group", "W"],
+  ["equipmentTeardownTime", "Equipment teardown time", "AE"],
+  ["evaluationRating", "Evaluation rating", "J"],
+  ["higherFormation", "Higher formation", "M"],
+  ["hostile", "Hostile", "N"],
+  ["iffSif", "IFF / SIF", "P"],
+  ["location", "Location", "Y"],
+  ["platformType", "Platform type", "AD"],
+  ["quantity", "Quantity", "C"],
+  ["reinforcedReduced", "Reinforced or reduced", "F"],
+  ["signatureEquipment", "Signature equipment", "L"],
+  ["specialHeadquarters", "Special headquarters", "AA"],
+  ["speed", "Speed", "Z"],
+  ["staffComments", "Staff comments", "G"],
+  ["type", "Type", "V"],
+  ["uniqueDesignation", "Unique designation", "T"],
+];
+
+/** Each field filled with its own letter, to show where it is drawn. */
+const FIELD_LETTER_VALUES: Record<string, string> = Object.fromEntries(
+  AMPLIFIER_FIELDS.map(([name, , letter]) => [name, name === "direction" ? "45" : letter])
+);
+
 interface QaResult {
   validIcon: boolean;
   affiliation?: string;
@@ -75,6 +105,8 @@ export default function SymbolLibraryPage(): JSX.Element {
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [qa, setQa] = useState<QaResult | null>(null);
+  const [amplifiers, setAmplifiers] = useState<Record<string, string>>({});
+  const [showAmplifiers, setShowAmplifiers] = useState(true);
 
   const loadCatalog = useCallback(async () => {
     const params = new URLSearchParams();
@@ -118,6 +150,16 @@ export default function SymbolLibraryPage(): JSX.Element {
 
   const symbolUrl = (sidc: string, ext: string, extra = "") =>
     `/api/${standard}/${sidc}.${ext}?size=120${extra}`;
+
+  const amplifierQuery = useMemo(() => {
+    if (!showAmplifiers) return "&amplifiers=off";
+    const params = new URLSearchParams();
+    for (const [name] of AMPLIFIER_FIELDS) {
+      if (amplifiers[name]) params.set(name, amplifiers[name]);
+    }
+    const query = params.toString();
+    return query ? `&${query}` : "";
+  }, [amplifiers, showAmplifiers]);
 
   return (
     <div className={styles.layout}>
@@ -296,12 +338,46 @@ export default function SymbolLibraryPage(): JSX.Element {
             )}
             <div className={styles.previewLarge}>
               <img
-                src={symbolUrl(activeSidc, "svg", "&width=200&height=200")}
+                src={symbolUrl(activeSidc, "svg", `&width=200&height=200${amplifierQuery}`)}
                 alt={selected.label}
-                width={200}
+                width={280}
                 height={200}
               />
             </div>
+            <section className={styles.amplifiers}>
+              <div className={styles.amplifierBar}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showAmplifiers}
+                    onChange={(e) => setShowAmplifiers(e.target.checked)}
+                  />{" "}
+                  Show text amplifiers
+                </label>
+                <button type="button" onClick={() => setAmplifiers(FIELD_LETTER_VALUES)}>
+                  Field letters
+                </button>
+                <button type="button" onClick={() => setAmplifiers({})}>
+                  Clear
+                </button>
+              </div>
+              <div className={styles.amplifierGrid}>
+                {AMPLIFIER_FIELDS.map(([name, label, letter]) => (
+                  <label key={name}>
+                    <span>
+                      {label} <code>{letter}</code>
+                    </span>
+                    <input
+                      value={amplifiers[name] ?? ""}
+                      disabled={!showAmplifiers}
+                      onChange={(e) =>
+                        setAmplifiers((current) => ({ ...current, [name]: e.target.value }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
             <table className={styles.metaTable}>
               <tbody>
                 <tr>
@@ -343,10 +419,10 @@ export default function SymbolLibraryPage(): JSX.Element {
               </tbody>
             </table>
             <div className={styles.links}>
-              <a href={symbolUrl(activeSidc, "svg")} target="_blank" rel="noreferrer">
+              <a href={symbolUrl(activeSidc, "svg", amplifierQuery)} target="_blank" rel="noreferrer">
                 SVG
               </a>
-              <a href={symbolUrl(activeSidc, "png")} target="_blank" rel="noreferrer">
+              <a href={symbolUrl(activeSidc, "png", amplifierQuery)} target="_blank" rel="noreferrer">
                 PNG
               </a>
               <a

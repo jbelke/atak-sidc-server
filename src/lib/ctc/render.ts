@@ -36,6 +36,14 @@ const MAX_AMPLIFIER_LENGTH = 64;
 export interface SymbolRequest {
   sidc: string;
   options: Record<string, string | number>;
+  /** False when the caller asked for the bare symbol with ?amplifiers=off. */
+  showAmplifiers: boolean;
+}
+
+/** ?amplifiers=off (or 0, false, no) hides every amplifier, country label included. */
+export function amplifiersEnabled(query: URLSearchParams): boolean {
+  const value = query.get("amplifiers");
+  return value === null || !/^(0|off|false|no)$/i.test(value);
 }
 
 /**
@@ -48,11 +56,13 @@ export interface SymbolRequest {
 export function symbolRequest(code: string, query: URLSearchParams): SymbolRequest {
   let sidc = code;
   const options: Record<string, string | number> = {};
+  const showAmplifiers = amplifiersEnabled(query);
   if (isXsidc(code)) {
     const decoded = decodeXsidc(code, { strings: new StringTable(), skipUnknownText: true });
     sidc = decoded.sidc;
     Object.assign(options, decoded.options);
   }
+  if (!showAmplifiers) return { sidc, options: {}, showAmplifiers };
   for (const name of AMPLIFIER_PARAMS) {
     const value = query.get(name);
     if (value) options[name] = value.slice(0, MAX_AMPLIFIER_LENGTH);
@@ -61,5 +71,5 @@ export function symbolRequest(code: string, query: URLSearchParams): SymbolReque
   if (options.direction && Number.isFinite(speedLeader) && speedLeader > 0) {
     options.speedLeader = Math.min(speedLeader, 500);
   }
-  return { sidc, options };
+  return { sidc, options, showAmplifiers };
 }

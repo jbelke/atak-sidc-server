@@ -51,3 +51,16 @@ test("the country label does not replace a caller's designation", () => {
   assert.ok(drawn.includes("CONTACT-00038"));
   assert.ok(!drawn.includes("NOR"));
 });
+
+test("?amplifiers=off draws the bare symbol, XSIDC kinematics and country included", () => {
+  const xsidc =
+    "130335000011010000000000000724_0001006534659068695152280_09724200000210001220002";
+  const off = symbolRequest(xsidc, new URLSearchParams("amplifiers=off&uniqueDesignation=SSK-0002"));
+  assert.equal(off.showAmplifiers, false);
+  assert.deepEqual(off.options, {});
+  assert.equal(off.sidc, "130335000011010000000000000724");
+  for (const value of ["0", "false", "no", "OFF"]) {
+    assert.equal(symbolRequest(LAND_UNIT, new URLSearchParams(`amplifiers=${value}`)).showAmplifiers, false);
+  }
+  assert.equal(symbolRequest(LAND_UNIT, new URLSearchParams("amplifiers=on")).showAmplifiers, true);
+});

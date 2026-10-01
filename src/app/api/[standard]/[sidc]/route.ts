@@ -8,6 +8,7 @@ import {
 } from "@/lib/symbol3d";
 import { symbolRequest } from "@/lib/ctc/render";
 import { countryFromSidc } from "@/lib/symbol-catalog/country";
+import { centreTextBaselines } from "@/lib/svg-text";
 import { applyEditionE } from "@/lib/symbol-catalog/edition-e";
 
 type RouteParams = {
@@ -151,9 +152,11 @@ export async function GET(
     });
     // Digit 23 (frame shape) is read from the SIDC. Digits 28-30 (country)
     // are not, so apply those before drawing, without replacing caller text.
-    applyEditionE(symbol, countryFromSidc(sidcCode), Object.keys(amplifiers));
+    if (parsed.showAmplifiers) {
+      applyEditionE(symbol, countryFromSidc(sidcCode), Object.keys(amplifiers));
+    }
 
-    const symbolSVG = symbol.asSVG();
+    const symbolSVG = centreTextBaselines(symbol.asSVG());
 
     if (is3DFormat(format)) {
       const symbol3DOptions = parseSymbol3DOptions(searchParams, {

@@ -280,6 +280,14 @@ into one label. Amplifiers a symbol does not draw are ignored, never an error. W
 field that the [country label](#the-two-sidc-dialects) would otherwise use (`uniqueDesignation` on
 air and sea, `staffComments` on land units), your text wins. 3D formats ignore amplifiers for now.
 
+Text positions follow the MIL-STD-2525D / APP-6(D) field grid and match the reference picker at
+[sidc.milsymb.net](https://sidc.milsymb.net/#/APP6) for ten symbol types (land unit, HQ unit,
+equipment, installation, dismounted, air, space, sea surface, subsurface, activity); see
+`src/lib/symbol-catalog/amplifier-layout.test.ts`. Add `amplifiers=off` (or `0`, `false`, `no`) to
+draw the bare symbol: it hides query amplifiers, XSIDC amplifiers and the country label.
+The [symbol library](#web-ui) has the same switch, a field for each amplifier, and a
+**Field letters** button that fills each field with its letter so you can see where it goes.
+
 Amplifiers grow the drawn extent, and raster output fits the whole extent into `width` × `height`,
 so the frame gets smaller as text is added.
 
