@@ -248,7 +248,7 @@ GET /api/{standard}/{sidc}.{format}
 | Segment | Values | Description |
 |---------|--------|-------------|
 | `standard` | `APP6` \| `2525` | Frame family, see [choosing NATO or US framing](#choosing-nato-or-us-framing) |
-| `sidc` | `10133000001207000000` \| `SFGPUCI-----USG` | 20- or 30-digit code, or legacy 15-character code |
+| `sidc` | `10133000001207000000` \| `SFGPUCI-----USG` | 20- or 30-digit code, legacy 15-character code, or an [XSIDC](#compact-track-codes-xsidc) |
 | `format` | `svg` `png` `jpg` `jpeg` `gif` `webp` `avif` `glb` `gltf` `obj` `mesh` | Output format, given as a file extension |
 
 **Query parameters (2D)**
@@ -258,6 +258,30 @@ GET /api/{standard}/{sidc}.{format}
 | `size` | `100` | Symbol size, and the default output width and height |
 | `width` | `size` | Output width in pixels (raster formats) |
 | `height` | `width` | Output height in pixels (raster formats) |
+
+**Text amplifiers (2D)**
+
+All 21 MIL-STD-2525D / APP-6 text amplifiers are query parameters, passed to milsymbol as-is. Values
+are cut at 64 characters. milsymbol escapes the text it writes into the SVG.
+
+| Group | Parameters |
+|---|---|
+| Identity | `uniqueDesignation`, `higherFormation`, `commonIdentifier`, `type`, `platformType`, `specialHeadquarters` |
+| Strength and status | `quantity`, `reinforcedReduced`, `combatEffectiveness`, `evaluationRating`, `signatureEquipment`, `equipmentTeardownTime` |
+| Kinematics | `direction`, `speed`, `altitudeDepth`, `location`, plus `speedLeader` (see below) |
+| Reporting | `dtg`, `staffComments`, `additionalInformation`, `iffSif`, `hostile` |
+
+`direction` alone draws the movement arrow. Adding `speedLeader` draws a speed leader line
+from the symbol centre instead; it sits under the frame, so values below about 60 stay hidden.
+
+Not every symbol set draws every amplifier. Measured against milsymbol 3.0, a land unit draws all 21
+and land equipment 20, but air and sea surface symbols draw 10 each; air joins speed and altitude
+into one label. Amplifiers a symbol does not draw are ignored, never an error. When you set a
+field that the [country label](#the-two-sidc-dialects) would otherwise use (`uniqueDesignation` on
+air and sea, `staffComments` on land units), your text wins. 3D formats ignore amplifiers for now.
+
+Amplifiers grow the drawn extent, and raster output fits the whole extent into `width` × `height`,
+so the frame gets smaller as text is added.
 
 Raster output is fitted to `width` × `height` on a transparent background. JPEG is flattened onto
 white because it has no alpha channel. 3D formats take their own parameters, covered in
@@ -276,7 +300,65 @@ curl -o symbol.webp "http://localhost:8080/api/APP6/10133000001207000000.webp?wi
 curl -o legacy.png  "http://localhost:8080/api/2525/SFGPUCI-----USG.png?size=256"
 # 30-digit E code: friend infantry, air frame (digit 23 = 2), United States (840)
 curl -o infantry.png "http://localhost:8080/api/APP6/130310000012110000000020000840.png?size=256"
+# Text amplifiers: designation, higher formation, strength
+curl -o coy.png "http://localhost:8080/api/APP6/10031000151211000000.png?size=256&uniqueDesignation=A&higherFormation=1-64&reinforcedReduced=(%2B)"
 ```
+
+### Compact track codes (XSIDC)
+
+A SIDC says *what* a track is. An XSIDC adds *where it is and how it moves*, plus the text
+amplifiers, as digits only, so a whole track fits a low-bandwidth radio link (about 228 bytes per
+LoRa/Meshtastic message). The format is the CTC v3.1 record from
+[`josh-ctc_calculator.v003.xls.xlsx`](.settings/sidc-2525-APP6/), ported to
+[`src/lib/ctc/`](src/lib/ctc/) and checked against the workbook's own self-check bytes.
+
+```
+130335000011010000000000000724 _ 0001006534659068695152280 _ 09724200000210001220002
+└── SIDC, 30 digits ──────────┘   └── EXT, 25 digits ───┘     └── AMP, optional ───┘
+```
+
+| Part | On the wire | Carries |
+|---|---|---|
+| SIDC | 10 digits (identity, symbol set, status, entity) | Version, context, HQ/TF, echelon and modifiers are mission defaults, restored by the receiver |
+| EXT | 25 digits | Instance ID, track phase, confidence, position, elevation band, course, speed band, accuracy, observation tick |
+| AMP | Only when the amplifiers change | Text amplifiers and country, see below |
+
+SIDC + EXT pack into one fixed **15-byte record**. AMP travels as a separate amplifier record
+(1 length byte + packed digits), so repeat reports cost 15 bytes.
+
+**How AMP covers the 21 text amplifiers**
+
+| Kind | Amplifiers | Cost |
+|---|---|---|
+| Read from EXT | `direction`, `speed`, `altitudeDepth`, `dtg`, `location` | 0 digits |
+| Coded values | `01` quantity (4), `02` reinforcedReduced (1), `03` combatEffectiveness (1), `04` evaluationRating (2), `05` signatureEquipment (0), `06` hostile (0), `07` iffSif (5), `08` equipmentTeardownTime (3), `09` country (3) | tag + digits shown |
+| String table | `20` uniqueDesignation, `21` higherFormation, `22` type, `23` platformType, `24` commonIdentifier, `25` specialHeadquarters, `26` staffComments, `27` additionalInformation | tag + 4-digit index |
+
+Each AMP entry is a 2-digit tag and a fixed-width value, tags in ascending order. Free text is an
+index into a string table both ends hold for one `table_version`; a sender must announce a new
+string before it uses its index.
+
+**Rendering an XSIDC.** Pass it where the SIDC goes. The server draws the kinematic amplifiers and
+the coded AMP values. It does not hold your mission string table, so it skips text tags; send that
+text as query parameters. `dtg` and `location` need the mission clock and AO origin, so the server
+does not draw them from an XSIDC.
+
+```bash
+curl -o ssk.png "http://localhost:8080/api/APP6/130335000011010000000000000724_0001006534659068695152280_09724200000210001220002.png?size=256&uniqueDesignation=SSK-0002"
+```
+
+**Compressing messages.** [`src/lib/ctc/adapters/stanag4817.ts`](src/lib/ctc/adapters/stanag4817.ts)
+turns STANAG 4817 `NODE_STATUS` and `DYNAMIC_UPDATE` contact messages into tracks.
+`encodeTrack()` returns the XSIDC, the record, and a `dropped` list of SIDC fields the wire cannot
+carry. It refuses a track outside every AO origin. Try it on the bundled samples:
+
+```bash
+node --experimental-strip-types examples/ctc-compress/compress-4817.ts \
+  examples/ctc-compress/mission.json src/lib/ctc/adapters/fixtures/*.json
+```
+
+The two samples go from about 1,500 bytes of JSON to 25 and 28 bytes on first report, then 15 bytes
+per update. CoT, SAPIENT and OTH-Gold adapters are planned (see [Roadmap](#roadmap)).
 
 ### Browse the symbol catalog
 
@@ -494,8 +576,10 @@ src/
 └── lib/
     ├── symbol3d/                       # SVG to three.js to glTF / GLB / OBJ / mesh
     ├── maplibre/                       # MapLibre custom 3D layers
+    ├── ctc/                            # XSIDC / CTC track codec, AMP, message adapters
     └── symbol-catalog/                 # SIDC catalog and filters
 examples/maplibre-3d-symbol/            # standalone HTML demo
+examples/ctc-compress/                  # compress 4817 JSON to CTC records
 public/                                 # static assets
 ```
 
@@ -503,33 +587,23 @@ public/                                 # static assets
 
 ### Text amplifiers
 
-A SIDC identifies *what* a symbol is. The amplifiers carry everything else: who it belongs to, how
-strong it is, when it was reported. The plan is to expose all 21 MIL-STD-2525D and APP-6 amplifier
-fields as query parameters, mapped onto the milsymbol options that already implement them.
+- [x] All 21 amplifiers as query parameters on 2D formats
+- [x] XSIDC amplifier block (AMP) with coded values and a string table
+- [ ] Sizing: define `size`, `width` and `height` against the amplified extent, not the bare frame
+- [ ] 3D policy: bake amplifier text into the puck texture, extrude it, or drop it
 
-| Group | Parameters |
-|---|---|
-| Identity | `uniqueDesignation`, `higherFormation`, `commonIdentifier`, `type`, `platformType`, `specialHeadquarters` |
-| Strength and status | `quantity`, `reinforcedReduced`, `combatEffectiveness`, `evaluationRating`, `signatureEquipment`, `equipmentTeardownTime` |
-| Kinematics | `direction`, `speed`, `altitudeDepth`, `location` |
-| Reporting | `dtg`, `staffComments`, `additionalInformation`, `iffSif`, `hostile` |
+### Message compression
 
-Three things this has to get right:
-
-- **Availability is symbol-dependent.** Not every amplifier applies to every symbol set. Measured
-  against milsymbol 3.0, a land unit accepts all 21 and land equipment 20, but air and sea surface
-  symbols accept only 10 each. The API should ignore inapplicable amplifiers rather than fail.
-- **Amplifiers change the symbol extent.** Adding a designation, direction, and speed to a land unit
-  grows its bounding box from 158 × 135.5 to 363 × 239.5. The meaning of `size`, `width`, and
-  `height` needs to be defined against the amplified extent, not the bare frame.
-- **3D needs a policy.** The 3D pipeline extrudes SVG fill paths, and amplifier text is stroke-based
-  and sits outside the frame. Each amplifier has to be baked into the puck texture, extruded as
-  separate geometry, or dropped from 3D exports.
+- [x] STANAG 4817 JSON to XSIDC
+- [ ] CoT (Cursor on Target) event XML
+- [ ] SAPIENT detection and status reports
+- [ ] OTH-Gold contact and position reports
+- [ ] Announcement frames for new instance IDs, strings and amplifier records
 
 ### Kinematics
 
-- [ ] Direction-of-movement leader via `direction`, with `speedLeader` controlling leader length
-- [ ] Speed and altitude/depth amplifiers on the symbol
+- [x] Direction-of-movement leader via `direction`, with `speedLeader` controlling leader length
+- [x] Speed and altitude/depth amplifiers on the symbol
 - [ ] Drive the existing 3D `heading` parameter from `direction`, so an extruded symbol faces the way
       its track is moving
 

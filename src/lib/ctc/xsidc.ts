@@ -201,6 +201,8 @@ export interface DecodeContext {
   epoch?: number;
   /** Frame origin index, needed for the location amplifier. */
   originIndex?: number;
+  /** Drop text amplifiers the string table cannot resolve instead of failing. */
+  skipUnknownText?: boolean;
 }
 
 function speedLabel(code: number, symbolSet: string): string | undefined {
@@ -255,7 +257,7 @@ export interface DecodedXsidc {
 export function decodeXsidc(code: string, ctx: DecodeContext): DecodedXsidc {
   const parts = parseXsidc(code);
   const ext = parseExt(parts.ext);
-  const amp = parseAmp(parts.amp, ctx.strings);
+  const amp = parseAmp(parts.amp, ctx.strings, ctx.skipUnknownText);
   return {
     sidc: amp.country ? parts.sidc.slice(0, 27) + amp.country : parts.sidc,
     ext,

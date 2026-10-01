@@ -6,6 +6,7 @@ import {
   parseSymbol3DOptions,
   type Symbol3DFormat,
 } from "@/lib/symbol3d";
+import { symbolRequest } from "@/lib/ctc/render";
 import { countryFromSidc } from "@/lib/symbol-catalog/country";
 import { applyEditionE } from "@/lib/symbol-catalog/edition-e";
 
@@ -135,16 +136,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const dimensions = getDimensions(searchParams);
     const format = getSymbolFormat(params.sidc);
-    const sidcCode = extractSidcCode(params.sidc);
     const standard = params.standard === "2525" ? "2525" : "APP6";
+    // A plain SIDC or an XSIDC (SIDC30_EXT25[_AMP]), plus amplifier query
+    // parameters. Amplifiers are drawn on 2D formats only until the 3D
+    // policy for text is settled.
+    const parsed = symbolRequest(extractSidcCode(params.sidc), searchParams);
+    const sidcCode = parsed.sidc;
+    const amplifiers = is3DFormat(format) ? {} : parsed.options;
 
     const symbol = new ms.Symbol(sidcCode, {
       size: Math.min(dimensions.width, dimensions.height),
       standard,
+      ...amplifiers,
     });
     // Digit 23 (frame shape) is read from the SIDC. Digits 28-30 (country)
-    // are not, so apply those before drawing.
-    applyEditionE(symbol, countryFromSidc(sidcCode));
+    // are not, so apply those before drawing, without replacing caller text.
+    applyEditionE(symbol, countryFromSidc(sidcCode), Object.keys(amplifiers));
 
     const symbolSVG = symbol.asSVG();
 

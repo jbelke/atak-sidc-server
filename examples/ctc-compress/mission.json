@@ -1,0 +1,10 @@
+{
+  "tableVersion": 1,
+  "start": "2026-10-01T00:00:00Z",
+  "tickSeconds": 10,
+  "defaults": { "version": "13", "context": "0" },
+  "origins": [
+    { "lat": 40, "lon": 14, "extentM": 100000 },
+    { "lat": 51, "lon": 0.5, "extentM": 100000 }
+  ]
+}

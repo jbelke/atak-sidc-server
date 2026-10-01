@@ -94,7 +94,7 @@ interface TagSpec {
   tag: string;
   width: number;
   encode(fields: AmpFields, strings: StringTable): string | undefined;
-  decode(digits: string, fields: AmpFields, strings: StringTable): void;
+  decode(digits: string, fields: AmpFields, strings: StringTable, skipUnknownText: boolean): void;
 }
 
 const RR_CODES: readonly ReinforcedReduced[] = ["+", "-", "±"];
@@ -119,10 +119,10 @@ function textTag(tag: string, name: TextAmplifier): TagSpec {
     tag,
     width: 4,
     encode: (f, strings) => (f[name] ? digits(strings.intern(f[name]!), 4, name) : undefined),
-    decode: (d, f, strings) => {
+    decode: (d, f, strings, skipUnknownText) => {
       const value = strings.get(Number(d));
-      if (value === undefined) throw new Error(`AMP ${name} points at unknown string ${d}`);
-      f[name] = value;
+      if (value !== undefined) f[name] = value;
+      else if (!skipUnknownText) throw new Error(`AMP ${name} points at unknown string ${d}`);
     },
   };
 }
@@ -229,7 +229,11 @@ export function encodeAmp(fields: AmpFields, strings: StringTable): string {
   return out;
 }
 
-export function parseAmp(amp: string, strings: StringTable): AmpFields {
+/**
+ * With skipUnknownText, a text index missing from the table is dropped
+ * instead of failing, for readers that do not hold the mission string table.
+ */
+export function parseAmp(amp: string, strings: StringTable, skipUnknownText = false): AmpFields {
   if (!/^\d*$/.test(amp)) throw new Error(`AMP must be digits, got "${amp}"`);
   const fields: AmpFields = {};
   let at = 0;
@@ -241,7 +245,7 @@ export function parseAmp(amp: string, strings: StringTable): AmpFields {
     if (tag <= last) throw new Error(`AMP tag ${tag} is out of order or repeated`);
     const value = amp.slice(at + 2, at + 2 + spec.width);
     if (value.length !== spec.width) throw new Error(`AMP tag ${tag} is truncated`);
-    spec.decode(value, fields, strings);
+    spec.decode(value, fields, strings, skipUnknownText);
     last = tag;
     at += 2 + spec.width;
   }

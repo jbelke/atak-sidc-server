@@ -90,8 +90,23 @@ interface EditionESymbol {
   }): unknown;
 }
 
-/** Apply a country label from digits 28-30. Frame shape is already read from the SIDC. */
-export function applyEditionE(symbol: EditionESymbol, countryLabel: string): void {
+/**
+ * Apply a country label from digits 28-30. Frame shape is already read from
+ * the SIDC. Fields named in `occupied` already hold caller text, so the
+ * label does not replace them.
+ */
+export function applyEditionE(
+  symbol: EditionESymbol,
+  countryLabel: string,
+  occupied: Iterable<string> = []
+): void {
   if (!countryLabel) return;
-  symbol.setOptions(countryAmplifierOptions(symbol.getMetadata(), countryLabel));
+  const options: Record<string, string | undefined> = countryAmplifierOptions(
+    symbol.getMetadata(),
+    countryLabel
+  );
+  for (const name of Array.from(occupied)) {
+    if (name !== "country") delete options[name];
+  }
+  symbol.setOptions(options);
 }
