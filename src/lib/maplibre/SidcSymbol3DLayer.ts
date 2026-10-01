@@ -29,8 +29,8 @@ export interface SidcSymbolLayerOptions {
  */
 export class SidcSymbol3DLayer implements maplibregl.CustomLayerInterface {
   id: string;
-  type: "custom" = "custom";
-  renderingMode: "3d" = "3d";
+  type = "custom" as const;
+  renderingMode = "3d" as const;
 
   private readonly modelUrl: string;
   private readonly origin: [number, number];

@@ -65,8 +65,8 @@ interface PlacedSymbol {
  */
 export class SidcSymbolFieldLayer implements maplibregl.CustomLayerInterface {
   id: string;
-  type: "custom" = "custom";
-  renderingMode: "3d" = "3d";
+  type = "custom" as const;
+  renderingMode = "3d" as const;
 
   private readonly tracks: SymbolFieldTrack[];
   private readonly scaleMultiplier: number;
