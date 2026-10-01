@@ -2,6 +2,7 @@
 // `npm test` loads scripts/test-resolve.mjs so the route's "@/" imports resolve.
 import assert from "node:assert/strict";
 import test from "node:test";
+import ms from "milsymbol";
 import { GET } from "../app/api/[standard]/[sidc]/route.ts";
 
 const LAND_UNIT = "10031000141211000000";
@@ -34,10 +35,50 @@ test("PNG fills the requested box by default, amplifiers included", async () => 
   assert.deepEqual(await pngSize(res), { width: 64, height: 64 });
 });
 
+test("sizing=frame keeps the frame scale and grows the image with the amplifiers", async () => {
+  const bare = await pngSize(await get(`/api/APP6/${LAND_UNIT}.png?sizing=frame&size=100`));
+  const amplified = await pngSize(await get(`/api/APP6/${LAND_UNIT}.png?sizing=frame&size=100&${AMPLIFIED}`));
+  const expected = new ms.Symbol(LAND_UNIT, {
+    size: 100,
+    uniqueDesignation: "ALPHA-1",
+    direction: "90",
+    speed: "20 KT",
+  }).getSize();
+  assert.deepEqual(bare, { width: 158, height: 136 });
+  assert.deepEqual(amplified, { width: Math.ceil(expected.width), height: Math.ceil(expected.height) });
+});
+
 test("GLB is a binary glTF", async () => {
   const res = await get(`/api/APP6/${LAND_UNIT}.glb`);
   assert.equal(res.status, 200);
   assert.equal(Buffer.from(await res.arrayBuffer()).subarray(0, 4).toString("ascii"), "glTF");
+});
+
+test("the 3D heading defaults from direction, and heading wins when both are set", async () => {
+  const fromDirection = await (await get(`/api/APP6/${LAND_UNIT}.mesh?direction=90`)).json();
+  assert.equal(fromDirection.pose.headingDeg, 90);
+  const explicit = await (await get(`/api/APP6/${LAND_UNIT}.mesh?direction=90&heading=45`)).json();
+  assert.equal(explicit.pose.headingDeg, 45);
+  const none = await (await get(`/api/APP6/${LAND_UNIT}.mesh`)).json();
+  assert.equal(none.pose.headingDeg, 0);
+});
+
+test("an unknown SIDC draws a placeholder, and strict=1 rejects it with 400", async () => {
+  const unknown = "10031000149999990000";
+  assert.equal((await get(`/api/APP6/${unknown}.svg`)).status, 200);
+  const strict = await get(`/api/APP6/${unknown}.svg?strict=1`);
+  assert.equal(strict.status, 400);
+  assert.match(await strict.text(), /SIDC/);
+  assert.equal((await get(`/api/APP6/${LAND_UNIT}.svg?strict=1`)).status, 200);
+});
+
+test("an amplifier over 64 characters is cut, and strict=1 rejects it with 400", async () => {
+  const long = "X".repeat(65);
+  const cut = await (await get(`/api/APP6/${LAND_UNIT}.svg?uniqueDesignation=${long}`)).text();
+  assert.ok(cut.includes(">" + "X".repeat(64) + "<"));
+  const strict = await get(`/api/APP6/${LAND_UNIT}.svg?strict=1&uniqueDesignation=${long}`);
+  assert.equal(strict.status, 400);
+  assert.match(await strict.text(), /uniqueDesignation/);
 });
 
 test("amplifiers=off draws no text", async () => {

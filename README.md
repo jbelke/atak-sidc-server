@@ -232,7 +232,9 @@ curl http://localhost:8080/api/health
 
 ```bash
 yarn install
-yarn dev      # http://localhost:8080
+yarn dev                # http://localhost:8080
+PORT=8417 yarn dev      # another port, when 8080 is taken
+yarn test               # unit tests, plus the GET route handler
 ```
 
 Other scripts: `yarn build`, `yarn start`, `yarn lint`, and `yarn prod` (build, then launch PM2).
@@ -258,11 +260,14 @@ GET /api/{standard}/{sidc}.{format}
 | `size` | `100` | Symbol size, and the default output width and height |
 | `width` | `size` | Output width in pixels (raster formats) |
 | `height` | `width` | Output height in pixels (raster formats) |
+| `sizing` | `box` | `box` fits the whole symbol into `width` × `height`. `frame` keeps the frame at the scale `size` gives it and makes the image as large as the symbol and its amplifiers need; `width` and `height` are then ignored |
+| `strict` | off | `1` or `true` answers `400` instead of drawing an unknown SIDC as a placeholder or cutting amplifier text longer than 64 characters |
 
 **Text amplifiers (2D)**
 
 All 21 MIL-STD-2525D / APP-6 text amplifiers are query parameters, passed to milsymbol as-is. Values
-are cut at 64 characters. milsymbol escapes the text it writes into the SVG.
+are cut at 64 characters, or rejected with `400` under `strict=1`. milsymbol escapes the text it
+writes into the SVG.
 
 | Group | Parameters |
 |---|---|
@@ -278,7 +283,8 @@ Not every symbol set draws every amplifier. Measured against milsymbol 3.0, a la
 and land equipment 20, but air and sea surface symbols draw 10 each; air joins speed and altitude
 into one label. Amplifiers a symbol does not draw are ignored, never an error. When you set a
 field that the [country label](#the-two-sidc-dialects) would otherwise use (`uniqueDesignation` on
-air and sea, `staffComments` on land units), your text wins. 3D formats ignore amplifiers for now.
+air and sea, `staffComments` on land units), your text wins. 3D formats do not draw text
+amplifiers, but `direction` sets the model's default heading when `heading` is not given.
 
 Text positions follow the MIL-STD-2525D / APP-6(D) field grid and match the reference picker at
 [sidc.milsymb.net](https://sidc.milsymb.net/#/APP6) for ten symbol types (land unit, HQ unit,
@@ -288,16 +294,19 @@ draw the bare symbol: it hides query amplifiers, XSIDC amplifiers and the countr
 The [symbol library](#web-ui) has the same switch, a field for each amplifier, and a
 **Field letters** button that fills each field with its letter so you can see where it goes.
 
-Amplifiers grow the drawn extent, and raster output fits the whole extent into `width` × `height`,
-so the frame gets smaller as text is added.
+Amplifiers grow the drawn extent. By default (`sizing=box`) raster output fits the whole extent
+into `width` × `height`, so the image size stays fixed and the frame gets smaller as text is
+added. With `sizing=frame` the frame stays the same size and the image grows instead: a land unit
+at `size=100` is 158 × 136 bare and 388 × 240 with a designation, speed and direction arrow. Use
+`frame` when symbols on one display must share a frame size.
 
-Raster output is fitted to `width` × `height` on a transparent background. JPEG is flattened onto
-white because it has no alpha channel. 3D formats take their own parameters, covered in
+Raster output is drawn on a transparent background. JPEG is flattened onto white because it has
+no alpha channel. 3D formats take their own parameters, covered in
 [3D / WebGL export](#3d--webgl-export).
 
-An unrecognised extension returns `500 Unsupported format`. An unparseable SIDC does **not** error,
-because milsymbol renders a placeholder symbol instead. Validate codes upstream if you need strict
-rejection.
+An unrecognised extension returns `500 Unsupported format`. An unparseable SIDC does **not** error
+by default, because milsymbol renders a placeholder symbol instead; add `strict=1` to get
+`400 Unknown SIDC` instead.
 
 **Examples**
 
@@ -424,7 +433,7 @@ MapLibre GL JS custom layers.
 | `flipY` | `true` | Flip SVG Y-down to Y-up for WebGL |
 | `frameOnly` | `false` | Extrude only the affiliation frame (a coloured "puck") and skip inner icon geometry |
 | `bakeIcon` | `false` | Bake the crisp 2D icon onto the puck faces as a PNG texture (`glb` and `gltf` only) |
-| `heading` | `0` | Baked in-plane icon orientation, degrees |
+| `heading` | `direction`, else `0` | Baked in-plane icon orientation, degrees |
 | `tilt` | `0` | Baked lean toward the default viewer, degrees |
 | `spin` | `0` | Baked continuous spin animation, degrees per second |
 | `form` | none | Presentation hint recorded in the model: `puck` or `billboard` |
@@ -597,8 +606,8 @@ public/                                 # static assets
 
 - [x] All 21 amplifiers as query parameters on 2D formats
 - [x] XSIDC amplifier block (AMP) with coded values and a string table
-- [ ] Sizing: define `size`, `width` and `height` against the amplified extent, not the bare frame
-- [ ] 3D policy: bake amplifier text into the puck texture, extrude it, or drop it
+- [x] Sizing: `sizing=frame` keeps the frame size fixed and grows the image to fit the text
+- [x] 3D policy: text amplifiers are left out of 3D models; map clients label tracks themselves
 
 ### Message compression
 
@@ -612,7 +621,7 @@ public/                                 # static assets
 
 - [x] Direction-of-movement leader via `direction`, with `speedLeader` controlling leader length
 - [x] Speed and altitude/depth amplifiers on the symbol
-- [ ] Drive the existing 3D `heading` parameter from `direction`, so an extruded symbol faces the way
+- [x] Drive the existing 3D `heading` parameter from `direction`, so an extruded symbol faces the way
       its track is moving
 
 ### Also planned

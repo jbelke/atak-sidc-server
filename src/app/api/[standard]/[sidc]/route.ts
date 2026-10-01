@@ -6,7 +6,7 @@ import {
   parseSymbol3DOptions,
   type Symbol3DFormat,
 } from "@/lib/symbol3d";
-import { symbolRequest } from "@/lib/ctc/render";
+import { MAX_AMPLIFIER_LENGTH, symbolRequest } from "@/lib/ctc/render";
 import { countryFromSidc } from "@/lib/symbol-catalog/country";
 import { centreTextBaselines } from "@/lib/svg-text";
 import { applyEditionE } from "@/lib/symbol-catalog/edition-e";
@@ -56,6 +56,19 @@ function getDimensions(searchParams: URLSearchParams): ImageDimensions {
   const width = parseInt(searchParams.get("width") || String(size), 10);
   const height = parseInt(searchParams.get("height") || String(width), 10);
   return { width, height };
+}
+
+/**
+ * Raster size of the whole symbol, amplifiers included. With ?sizing=frame the
+ * frame keeps the scale `size` gives it and the image grows to fit the text.
+ */
+function frameDimensions(symbol: { getSize(): { width: number; height: number } }): ImageDimensions {
+  const { width, height } = symbol.getSize();
+  return { width: Math.ceil(width), height: Math.ceil(height) };
+}
+
+function isOn(value: string | null): boolean {
+  return value === "1" || value === "true";
 }
 
 function getSymbolFormat(sidcParam: string): ImageFormat {
@@ -150,6 +163,19 @@ export async function GET(
       standard,
       ...amplifiers,
     });
+    // ?strict=1 rejects what is otherwise drawn as best it can be: an unknown
+    // SIDC (drawn as a placeholder) and amplifier text that would be cut.
+    if (isOn(searchParams.get("strict"))) {
+      if (!symbol.isValid()) {
+        return new Response(`Unknown SIDC "${sidcCode}"`, { status: 400 });
+      }
+      if (parsed.truncated.length > 0) {
+        return new Response(
+          `Amplifier text longer than ${MAX_AMPLIFIER_LENGTH} characters: ${parsed.truncated.join(", ")}`,
+          { status: 400 }
+        );
+      }
+    }
     // Digit 23 (frame shape) is read from the SIDC. Digits 28-30 (country)
     // are not, so apply those before drawing, without replacing caller text.
     if (parsed.showAmplifiers) {
@@ -163,16 +189,18 @@ export async function GET(
         sidc: sidcCode,
         standard,
       });
+      // Text amplifiers are not drawn in 3D, but the direction of movement
+      // still orients the model unless ?heading= is given.
+      const direction = Number(parsed.options.direction);
+      if (symbol3DOptions.headingDegrees === undefined && parsed.options.direction !== undefined && Number.isFinite(direction)) {
+        symbol3DOptions.headingDegrees = direction;
+      }
 
       // Bake the crisp 2D icon onto the puck faces so the GLB is self-contained
       // for external glTF clients (ATAK, Cesium). OPT-IN via ?bakeIcon=1 — the
       // live gallery textures the faces itself, so a baked plane there would just
       // get repainted flat by its material pass. `mesh`/`obj` stay geometry-only.
-      const bakeIcon = searchParams.get("bakeIcon");
-      if (
-        (format === "glb" || format === "gltf") &&
-        (bakeIcon === "1" || bakeIcon === "true")
-      ) {
+      if ((format === "glb" || format === "gltf") && isOn(searchParams.get("bakeIcon"))) {
         const iconPng = await generateImage(symbolSVG, { width: 256, height: 256 }, "png");
         symbol3DOptions.iconTexturePng = iconPng.toString("base64");
       }
@@ -202,7 +230,9 @@ export async function GET(
       });
     }
 
-    const buffer = await generateImage(symbolSVG, dimensions, format);
+    const raster =
+      searchParams.get("sizing") === "frame" ? frameDimensions(symbol) : dimensions;
+    const buffer = await generateImage(symbolSVG, raster, format);
     return new Response(buffer, {
       headers: { "Content-Type": MIME_TYPES[format] },
     });
