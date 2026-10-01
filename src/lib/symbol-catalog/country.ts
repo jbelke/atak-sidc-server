@@ -67,3 +67,12 @@ export function countryFromSidc(sidc: string): string {
   if (!/^\d{3}$/.test(numeric) || numeric === "000") return "";
   return ISO3166_NUMERIC_TO_ALPHA3[numeric] ?? numeric;
 }
+
+const ALPHA3_TO_ISO3166_NUMERIC: Record<string, string> = Object.fromEntries(
+  Object.entries(ISO3166_NUMERIC_TO_ALPHA3).map(([numeric, alpha3]) => [alpha3, numeric])
+);
+
+/** ISO 3166-1 numeric code for an alpha-3 code, or undefined when unknown. */
+export function countryNumericFromAlpha3(alpha3: string): string | undefined {
+  return ALPHA3_TO_ISO3166_NUMERIC[alpha3.toUpperCase()];
+}

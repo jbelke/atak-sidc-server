@@ -251,6 +251,31 @@ export function parseFrame(bytes: Uint8Array): { header: FrameHeader; records: U
   };
 }
 
+/**
+ * Amplifier record: 1 byte holding the digit count, then the 4-digit
+ * instance ID and the AMP digits read as one unsigned integer. It travels
+ * apart from the fixed 15-byte records, and only when the amplifiers change.
+ */
+export function ampRecordBytes(instanceId: number, amp: string): Uint8Array {
+  if (!/^\d*$/.test(amp)) throw new Error(`AMP must be digits, got "${amp}"`);
+  const digits = pad(instanceId, 4, "instanceId") + amp;
+  if (digits.length > 255) throw new RangeError("Amplifier record too long");
+  const length = Math.ceil((digits.length * Math.log2(10)) / 8);
+  const out = new Uint8Array(1 + length);
+  out[0] = digits.length;
+  out.set(bigIntToBytes(digitsToBigInt(digits), length), 1);
+  return out;
+}
+
+export function parseAmpRecord(bytes: Uint8Array): { instanceId: number; amp: string } {
+  const count = bytes[0];
+  const length = Math.ceil((count * Math.log2(10)) / 8);
+  if (count < 4 || bytes.length !== 1 + length) throw new Error("Malformed amplifier record");
+  const digits = bytesToBigInt(bytes.subarray(1)).toString().padStart(count, "0");
+  if (digits.length !== count) throw new Error("Amplifier record digits overflow");
+  return { instanceId: Number(digits.slice(0, 4)), amp: digits.slice(4) };
+}
+
 export function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
