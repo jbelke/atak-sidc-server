@@ -6,6 +6,7 @@ import {
   parseSymbol3DOptions,
   type Symbol3DFormat,
 } from "@/lib/symbol3d";
+import { countryFromSidc } from "@/lib/symbol-catalog/country";
 
 type RouteParams = {
   params: {
@@ -135,10 +136,16 @@ export async function GET(
     const format = getSymbolFormat(params.sidc);
     const sidcCode = extractSidcCode(params.sidc);
     const standard = params.standard === "2525" ? "2525" : "APP6";
+    const country = countryFromSidc(sidcCode);
 
     const symbol = new ms.Symbol(sidcCode, {
       size: Math.min(dimensions.width, dimensions.height),
       standard,
+      country,
+      // milsymbol (<= 3.0.4) only draws text amplifiers when one field in a
+      // fixed list is set, and `country` is missing from that list. AG is in
+      // the list but never drawn, so setting it lets the country label show.
+      ...(country ? { auxiliaryEquipmentIndicator: country } : {}),
     });
 
     const symbolSVG = symbol.asSVG();

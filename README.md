@@ -114,17 +114,23 @@ curl -o legacy.png "http://localhost:8080/api/2525/SFGPUCI-----USG.png?size=256"
 | MIL-STD-2525 | A / B | Dec 1996 / Jan 1999 | 15-character | ⚠️ Parses, drawn per 2525C |
 | MIL-STD-2525 | **C** | Nov 2008 | 15-character | ✅ Implemented |
 | MIL-STD-2525 | **D** | Jun 2014 | 20-digit | ✅ Implemented |
-| MIL-STD-2525 | **E** | Dec 2022 | 20-digit | ✅ Implemented, rendering target |
+| MIL-STD-2525 | **E** | Dec 2022 | 20- or 30-digit | ✅ Implemented, rendering target |
 | STANAG 2019 / APP-6 | A | Dec 1999 | 15-character | ⚠️ Parses, drawn per APP-6(B) |
 | STANAG 2019 / APP-6 | **B** | Jun 2008 | 15-character | ✅ Implemented |
 | STANAG 2019 / APP-6 | C | May 2011 | 15-character | ⚠️ Parses, drawn per APP-6(B) |
 | STANAG 2019 / APP-6 | **D** | Oct 2017 | 20-digit | ✅ Implemented |
-| STANAG 2019 / APP-6 | **E** | 2023 | 20-digit | ✅ Implemented, rendering target |
+| STANAG 2019 / APP-6 | **E** | 2023 | 20- or 30-digit | ✅ Implemented, rendering target |
 
 ✅ means the edition's symbol set is implemented. ⚠️ means codes in that edition share their
 dialect's structure, so they parse and render, but icon coverage follows the implemented edition of
 that dialect. FM 1-02.2 (US Army *Military Symbols*) is also implemented and shares the 20-digit
 dialect.
+
+A 30-digit E code is the 20-digit code plus 10 more digits. Digit 23 overrides the frame shape
+(for example, a ground unit drawn in an air frame). Digits 28-30 are the ISO 3166 numeric country
+code. The server converts it to the 3-letter code (`840` becomes `USA`) and draws it as the country
+label (field AC). milsymbol shows that label on equipment, installations, and activities, but not
+on land units or sea symbols. `000` or an unknown code draws no label.
 
 Support is inherited from milsymbol 3.0. See its
 [symbology notes](https://github.com/spatialillusions/milsymbol) for per-symbol detail.
@@ -206,7 +212,7 @@ GET /api/{standard}/{sidc}.{format}
 | Segment | Values | Description |
 |---------|--------|-------------|
 | `standard` | `APP6` \| `2525` | Frame family, see [choosing NATO or US framing](#choosing-nato-or-us-framing) |
-| `sidc` | `10133000001207000000` \| `SFGPUCI-----USG` | 20-digit or legacy 15-character code |
+| `sidc` | `10133000001207000000` \| `SFGPUCI-----USG` | 20- or 30-digit code, or legacy 15-character code |
 | `format` | `svg` `png` `jpg` `jpeg` `gif` `webp` `avif` `glb` `gltf` `obj` `mesh` | Output format, given as a file extension |
 
 **Query parameters (2D)**
