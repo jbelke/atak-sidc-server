@@ -89,16 +89,16 @@ D codes are 20 digits. E codes are those same 20 digits plus an optional 10-digi
 in all. The first 20 digits mean the same thing in both editions.
 
 ```
- 10  0  3  13  0  0  00  001207  00  00
+ 10  1  3  30  0  0  00  001207  00  00
  │   │  │  │   │  │  │   │       │   └── digits 19-20  Sector modifier 2
  │   │  │  │   │  │  │   │       └────── digits 17-18  Sector modifier 1
  │   │  │  │   │  │  │   └────────────── digits 11-16  Entity / type / subtype
  │   │  │  │   │  │  └────────────────── digits 9-10   Amplifier / echelon
  │   │  │  │   │  └───────────────────── digit 8       HQ / task force / dummy
  │   │  │  │   └──────────────────────── digit 7       Status (present / planned)
- │   │  │  └──────────────────────────── digits 5-6    Symbol set (13 = sea surface)
+ │   │  │  └──────────────────────────── digits 5-6    Symbol set (30 = sea surface)
  │   │  └─────────────────────────────── digit 4       Standard identity (3 = friend)
- │   └────────────────────────────────── digit 3       Context (0 = reality)
+ │   └────────────────────────────────── digit 3       Context (1 = exercise)
  └────────────────────────────────────── digits 1-2    Version
 ```
 
